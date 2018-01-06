@@ -1,0 +1,19 @@
+Training from position R
+
+1. Pick move according to MCTS book starting from root R. Maintain a book with number of games played and won from all positions.
+2. Stop at a leaf node L (TODO : how to determine this)
+3. Perform a playout using NN from L to terminal node T
+4. Train value NN for positions R through L using result of the playout
+
+
+Playing best move from position P
+
+1. Perform k pseudo-playouts from every legal move, terminate with any given probability and return value from NN as pseudo-playout result.
+2. Average scores from all k playouts
+3. Pick the move with highest average
+
+*** Features ***
+
+1. is_king_in_check
+2. pieces attacked
+3. pieces defended

@@ -1,8 +1,12 @@
+/*
+* author: Himangshu Saikia, 2018
+* email : saikia@kth.se
+*/
+
 #pragma once
 #include <vector>
 #include <memory>
 #include <map>
-#include "Chess/position.h"
 #include "Chess/position.h"
 #include "Chess/bitboard.h"
 #include "Chess/direction.h"
@@ -15,56 +19,55 @@ using namespace NN;
 using namespace Chess;
 
 struct MoveScore {
-	size_t move_idx;
+	Move move;
 	double score;
-	double mctsProb;
 
 	MoveScore() {
+		move = MOVE_NONE;
 		score = 1;
-		mctsProb = 1;
 	}
 
 	static bool compare(MoveScore ms1, MoveScore ms2) {
-		return ms1.score * ms1.mctsProb > ms2.score * ms2.mctsProb;
+		return ms1.score > ms2.score;
 	}
 };
 
 struct Record {
-	int wWon;
-	int bWon;
-	int played;
+	double averageEval;
+	int seen;
 
 	Record() {
-		wWon = 0;
-		bWon = 0;
-		played = 0;
+		averageEval = 0.0;
+		seen = 0;
 	}
 };
 
 class Train {
-private:
-	std::map<std::string, Record> book_;
 public:
 	Train();
-	int playTrainingGame(const int id);
+	int playGame(const int id);
 	static void writeToPgn(const std::vector<Move>& game, const int result, const std::string& filename);
+	//void playFromPos(const std::shared_ptr<Position> pos);
+	
+	//void addToBook(const std::shared_ptr<Position> pos, int result);
+	//void writeBook(const std::string& filename) const;
+	//void readBook(const std::string& filename);
+	
 
-	/**
-	 * Plays out a game from the given position and returns the result
-	 *  Uses a neural net to choose the best move to play
-	 **/
-	int playout(const std::shared_ptr<Position> pos, int drawAfter = 150);
-
-	/*
-	* Picks best move using book(MCTS visit prob) + NN 
-	*/
-	Move pickBestMove(const std::shared_ptr<Position> pos);
-	void trainFromPos(const std::vector<Move>& prevMoves, const std::shared_ptr<Position> pos);
-	void backProp(const std::shared_ptr<Position> pos, int result);
-	void addToBook(const std::shared_ptr<Position> pos, int result);
-	void writeBook(const std::string& filename) const;
-	void readBook(const std::string& filename);
-	static bool checkTermination(const std::shared_ptr<Position> pos, int& result, bool drawCondition);
-
+	//
 	NeuralNetwork net_;
+	
+private:
+	/*
+	* Picks best next move using book(MCTS visit prob) + Average Evaluation
+	*/
+	void trainGame(const std::vector<Move>& game, int result);
+	Move pickNextMove(const std::shared_ptr<Position> pos, const std::map<std::string, Record>& book);
+	void searchSubtree(const std::shared_ptr<Position> pos, std::map<std::string, Record>& book);
+	void backProp(const std::shared_ptr<Position> pos, int result);
+	static bool checkTermination(const std::shared_ptr<Position> pos, int& result, bool drawCondition);
+	double evaluatePosition(const std::shared_ptr<Position> pos);
+
+	// reintroducing for bootstrap..
+	std::map<std::string, Record> book_;
 };

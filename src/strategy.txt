@@ -1,19 +1,26 @@
-Training from position R
+MCTS for Xewali
 
-1. Pick move according to MCTS book starting from root R. Maintain a book with number of games played and won from all positions.
-2. Stop at a leaf node L (TODO : how to determine this)
-3. Perform a playout using NN from L to terminal node T
-4. Train value NN for positions R through L using result of the playout
+Game
+	1.	At every position initialise a new book
+	2.	Populate the book by expanding leaf nodes by MCTS.
+	3.	The expanded node is evaluated by the neural network.
+	4.	The evaluated score is trickled up to update the ancestors scores in the MCTS book.
+	5.	After a sufficient number of searches, the move with highest value is returned.
 
+Training
+	0.	Each move of the game is then trained using the result of the game.
 
-Playing best move from position P
-
-1. Perform k pseudo-playouts from every legal move, terminate with any given probability and return value from NN as pseudo-playout result.
-2. Average scores from all k playouts
-3. Pick the move with highest average
 
 *** Features ***
 
-1. is_king_in_check
-2. pieces attacked
-3. pieces defended
+0. can white castle <K> - can black castle <K>
+1. is_king_in_check (1 or -1)
+2. black pieces attacked - white pieces attacked
+3. white pieces defended - black pieces defended
+4. (black piece attacked but not defended) - (white piece attacked but not defended)
+5. white influence squares - black influence squares
+
+
+
+
+ 

@@ -1,3 +1,8 @@
+/*
+* author: Himangshu Saikia, 2018
+* email : saikia@kth.se
+*/
+
 #include "train.h"
 #include "features.h"
 #include <algorithm>
@@ -5,8 +10,6 @@
 #include <fstream>
 
 const int trainingGameMovesLimit = 100;
-const double epsilon = 0.2; // for e-greedy strategy
-const int numGamesToTrainOn = 50;
 
 Train::Train()
 {
@@ -21,39 +24,48 @@ Train::Train()
 
 	std::vector<size_t> topo = { Features::getNumFeatures(), Features::getNumFeatures(), 1 };
 	std::vector<double> eta = { 0.15, 0.15, 0.15 };
-	std::vector<double> alpha = { 0.2, 0.2, 0.2 };
+	std::vector<double> alpha = { 0.5, 0.5, 0.5 };
 	std::vector<ActivationFunction> actFuns = { TANH, TANH, TANH };
 	net_.init(topo, eta, alpha, actFuns);
 }
 
-int Train::playTrainingGame(const int id)
+int Train::playGame(const int id)
 {
 	auto pos = std::make_shared<Position>(StartPosition);
 	int one_side_moves = 0;
 	int result; // 1 white, -1 black, 0 draw
 	std::vector<Move> game;
+	//std::map<std::string, Record> book;
 
 	while (true) { // game continues
-
-		//std::cout << "Playing Game " << id << "\n";
-		//std::cout << "Move " << (one_side_moves + 2) / 2 << "\n";
 
 		if (Train::checkTermination(pos, result, one_side_moves >= 2 * trainingGameMovesLimit)) {
 			break;
 		}
 
-		//train n games
-		int n = numGamesToTrainOn;
-		while (n--) {
-			trainFromPos(game, pos);
+		// Evaluate the subtree under this position using MCTS
+		// Evaluate n positions in this subtree
+
+		int positionsToEval = 1000;
+		while (positionsToEval--) {
+			searchSubtree(pos, book_);
 		}
+
+		std::cout << "Searching done.. picking move " << one_side_moves << "\n";
+
+		// Now pick the next move
+		Move m = pickNextMove(pos, book_);
 
 		//play a move
 		UndoInfo u;
-		Move m = pickBestMove(pos);
 		game.push_back(m);
 		pos->do_move(m, u);
 		one_side_moves++;
+	}
+
+	//train on the game if result is a win or loss
+	if (result != 0) {
+		trainGame(game, result);
 	}
 
 	std::stringstream ss;
@@ -64,143 +76,101 @@ int Train::playTrainingGame(const int id)
 	else if (result == -1) {
 		resStr = "_black_";
 	}
-	ss << "Output/TrainingGame" << id
+
+	ss << "Output/Game" << id
 		<< resStr
 		<< (one_side_moves + 2) / 2 << "moves"
 		<< ".pgn";
 	Train::writeToPgn(game, result, ss.str());
+	
+	std::cout << "Played a game of " << (game.size() + 1) / 2 << " moves. Result " << result << " \n";
+	std::cout << "Book has " << book_.size() << " entries.\n";
 
 	ss.str(std::string());
 	ss << "Output/NN" << id << ".network";
 	net_.writeNNToFile(ss.str());
-
-	ss.str(std::string());
-	ss << "Output/Positions" << id << ".book";
-	writeBook(ss.str());
-
-	ss.str(std::string());
-	ss << "Output/Info" << id << ".txt";
-	std::ofstream infoFile;
-	infoFile.open(ss.str());
-
-	infoFile << "Played a training game of " << (game.size() + 1) / 2 << " moves. Result " << result << " \n";
-	infoFile << "Book has " << book_.size() << " entries\n";
-
-	infoFile.close();
-
+	
 	return result;
 }
 
-void Train::trainFromPos(const std::vector<Move>& prevMoves, const std::shared_ptr<Position> pos_)
+void Train::searchSubtree(const std::shared_ptr<Position> pos, std::map<std::string, Record>& book)
 {
-	std::shared_ptr<Position> leaf = std::make_shared<Position>(*pos_);
-	std::vector<Move> moves = prevMoves;
+	std::shared_ptr<Position> leaf = std::make_shared<Position>(*pos);
+	std::vector<Move> moves;
 	int result = 0;
+	bool reachedTerminalPosition = false;
 	//traverse until leaf is found
+	int depth = 0;
 	while (true) {
 		auto fen = leaf->to_fen();
-		if (book_.find(fen) == book_.end()) { // never seen this position before!
+		if (book.find(fen) == book.end()) { // never seen this position before!
 			break;
 		}
 
-		if (Train::checkTermination(leaf, result, false)) {
+		reachedTerminalPosition = Train::checkTermination(leaf, result, depth >= trainingGameMovesLimit);
+		if (reachedTerminalPosition) {
 			break;
 		}
 
-		Move m;
-		double R = rand() / double(RAND_MAX);
-		
-		// follow e-greedy strategy
-		if (R < epsilon) {
-			Move mlist[256];
-			auto num_legal_moves = leaf->all_legal_moves(mlist);
-			int rand_move_idx = rand() % num_legal_moves;
-			m = mlist[rand_move_idx];
-		}
-		else {
-			m = this->pickBestMove(leaf);
-		}
-		UndoInfo u;
+		Move m = pickNextMove(leaf, book);
 		moves.push_back(m);
-		leaf->do_move(m, u);
-	}
-
-	//perform playout till the end
-	result = playout(leaf);
-
-	std::shared_ptr<Position> root = std::make_shared<Position>(StartPosition);
-
-	// if result is won or loss, update NN weights using backprop
-	// also update book
-	for (int i = 0; i < moves.size(); i++) {
-		//nn
-		backProp(root, result);
-
-		//book
-		addToBook(root, result);
 
 		UndoInfo u;
-		root->do_move(moves[i], u);
+		leaf->do_move(m, u);
+		depth++;
 	}
 
-	// finally, add the leaf node to the book
-	backProp(leaf, result);
-	addToBook(leaf, result);
+	// Now we encountered a leaf which has not been seen or evaluated before
+	// Evaluate it using the NN
+	double val = evaluatePosition(leaf);
+
+	// If the leaf ends up in a win, loss or draw, set the value accordingly
+	if (reachedTerminalPosition) {
+		val = double(result);
+	}
+
+	// Add the leaf to the book
+	auto fen = leaf->to_fen();
+	book[fen].seen = 1;
+	book[fen].averageEval = val;
+
+	// Update the evaluations of all nodes prior to this leaf
+	std::shared_ptr<Position> tmp = std::make_shared<Position>(*pos);
+	for (int i = 0; i < moves.size(); i++) {
+		auto fen = tmp->to_fen();
+		book[fen].averageEval = (book[fen].averageEval * book[fen].seen + val) / (book[fen].seen + 1);
+		book[fen].seen++;
+	}
+
 }
 
 void Train::backProp(const std::shared_ptr<Position> pos, int result)
-{
-	// do not train on drawn games!
-	if (result != 0) {
+{		
+	Features f;
+	f.setFeaturesFromPos(pos);
+	
+	auto v = f.getFeatureVector();
+	net_.feedForward(v);
 
-		Features f;
-		f.setFeaturesFromPos(pos);
+	std::vector<double> res;
+	res.push_back(result);
 
-		auto v = f.getFeatureVector();
-		net_.feedForward(v);
-
-		std::vector<double> res;
-		res.push_back(result);
-
-		net_.backProp(res);
-	}
+	net_.backProp(res);
 }
 
-void Train::addToBook(const std::shared_ptr<Position> pos, int result)
+void Train::trainGame(const std::vector<Move>& game, int result)
 {
-	auto fen = pos->to_fen();
-	book_[fen].played++;
-
-	if (result == 1) {
-		book_[fen].wWon++;
-	}
-	else if (result == -1) {
-		book_[fen].bWon++;
-	}
-}
-
-int Train::playout(const std::shared_ptr<Position> pos_, int drawAfter)
-{
-	int movesPlayed = 0;
-	int result = 0;
-
-	std::shared_ptr<Position> pos = std::make_shared<Position>(*pos_);
-
-	while (true) { // game continues
-
-		if (checkTermination(pos, result, movesPlayed > 2 * drawAfter)) {
-			break;
-		}
-
+	std::shared_ptr<Position> pos = std::make_shared<Position>(StartPosition);
+	backProp(pos, result);
+	for (int i = 0; i < game.size(); i++) {
 		UndoInfo u;
-		pos->do_move(pickBestMove(pos), u);
-		movesPlayed++;
+		pos->do_move(game[i], u);
+		backProp(pos, result);
 	}
-
-	return result;
 }
 
-Move Train::pickBestMove(const std::shared_ptr<Position> pos)
+// pick the immediate next move according to current mcts evaluation
+Move Train::pickNextMove(const std::shared_ptr<Position> pos, const std::map<std::string, Record>& book)
 {
 	Move mlist[256];
 	bool whiteToMove = (pos->side_to_move() == Color::WHITE);
@@ -212,53 +182,41 @@ Move Train::pickBestMove(const std::shared_ptr<Position> pos)
 		return MOVE_NONE;
 	}
 
-	int totGamesPlayedFromThisPos = 0;
+	int totPositionsSeenFromThisPos = 0;
 	std::vector<Record> mctsVisited(num_legal_moves, Record());
 
+	// find total moves seen from this position
 	for (int i = 0; i < num_legal_moves; i++) {
 		UndoInfo u;
-		std::shared_ptr<Position> posTemp = std::make_shared<Position>(*pos);
+		std::unique_ptr<Position> posTemp = std::make_unique<Position>(*pos);
+		posTemp->reset_game_ply();
 		posTemp->do_move(mlist[i], u);
 		auto posFEN = posTemp->to_fen();
-		if (book_.find(posFEN) != book_.end()) { // seen this position before
-			totGamesPlayedFromThisPos += book_[posFEN].played;
-			mctsVisited[i] = book_[posFEN];
+		if (book.find(posFEN) != book.end()) { // seen this position before
+			auto entry = book.find(posFEN)->second;
+			totPositionsSeenFromThisPos += entry.seen;
+			mctsVisited[i] = entry;
 		}
 	}
 	
 	std::vector<MoveScore> moveScores(num_legal_moves);
 	
 	for (int i = 0; i < num_legal_moves; i++) {
-		UndoInfo u;
-		moveScores[i].move_idx = i;
+		moveScores[i].move = mlist[i];
+		//eval till now + mcts low visit prob
+		
+		double score = mctsVisited[i].seen == 0 ? 1000 : sqrt(2.0 * log(totPositionsSeenFromThisPos) / mctsVisited[i].seen);
+		// if black to move, make probabilities negative
+		score *= whiteToMove ? 1 : -1;
 
-		// NN output
-		std::shared_ptr<Position> posTemp = std::make_shared<Position>(*pos);
-		posTemp->do_move(mlist[i], u);
-
-		Features f;
-		f.setFeaturesFromPos(posTemp);
-
-		net_.feedForward(f.getFeatureVector());
-
-		std::vector<double> scores;
-		net_.getResults(scores);
-
-		moveScores[i].score = scores[0];
-
-		//mcts
-		if (totGamesPlayedFromThisPos > 0) {
-			auto Won = whiteToMove ? mctsVisited[i].wWon : mctsVisited[i].bWon;
-			moveScores[i].mctsProb = mctsVisited[i].played == 0 ? 1000 :
-			double(Won) / mctsVisited[i].played +
-			sqrt(2.0 * log(totGamesPlayedFromThisPos) / mctsVisited[i].played);
-		}
+		moveScores[i].score = score + mctsVisited[i].averageEval;
 	}
 
-	// if white to move, choose move with highest score, else choose one with lowest score
+	//sort the moves according to their score
 	sort(moveScores.begin(), moveScores.end(), MoveScore::compare);
 
-	return whiteToMove ? mlist[moveScores[0].move_idx] : mlist[moveScores[num_legal_moves - 1].move_idx];
+	// if white to move, choose move with highest score, else choose one with lowest score
+	return whiteToMove ? moveScores[0].move : moveScores[num_legal_moves - 1].move;
 }
 
 void Train::writeToPgn(const std::vector<Move>& game, const int result, const std::string & filename)
@@ -302,62 +260,12 @@ void Train::writeToPgn(const std::vector<Move>& game, const int result, const st
 	file.close();
 }
 
-void Train::writeBook(const std::string & filename) const
-{
-	std::ofstream file;
-	file.open(filename);
-
-	for (auto& entry : book_) {
-		file << entry.first << "\n" << entry.second.wWon 
-			<< " " << entry.second.bWon << " " << entry.second.played << "\n";
-	}
-
-	file.close();
-}
-
-void Train::readBook(const std::string & filename)
-{
-	// doesn't clear existing book_, just adds to it
-	std::ifstream file;
-	file.open(filename);
-
-	std::string line, fen;
-	int w, b, p;
-
-	bool key = true;
-
-	while (std::getline(file, line)) {
-		if (key) {
-			fen = line;
-			key = false;
-		}
-		else {
-			std::istringstream is(line);
-			is >> w >> b >> p;
-			if (book_.find(fen) != book_.end()) {
-				book_[fen].wWon += w;
-				book_[fen].bWon += b;
-				book_[fen].played += p;
-			}
-			else {
-				book_[fen].wWon = w;
-				book_[fen].bWon = b;
-				book_[fen].played = p;
-			}
-			key = true;
-		}
-	}
-
-	file.close();
-
-	std::cout << "Read " << book_.size() << " book entries\n";
-
-}
-
 bool Train::checkTermination(const std::shared_ptr<Position> pos, int & result, bool drawCondition)
 {
 	bool whiteToMove = (pos->side_to_move() == Color::WHITE);
 
+	// removed draw by repetition from the code
+	// TODO : Incorporate this into the features 
 	if (pos->is_draw() || drawCondition) {
 		result = 0;
 		return true;
@@ -372,10 +280,23 @@ bool Train::checkTermination(const std::shared_ptr<Position> pos, int & result, 
 	auto num_legal_moves = pos->all_legal_moves(mlist);
 
 	if (num_legal_moves == 0) {
-		//std::cout << "Game " << id << " ended in Stalemate.\n";
+		// Stalemate
 		result = 0;
 		return true;
 	}
 
 	return false;
+}
+
+double Train::evaluatePosition(const std::shared_ptr<Position> pos)
+{
+	Features f;
+	f.setFeaturesFromPos(pos);
+
+	net_.feedForward(f.getFeatureVector());
+
+	std::vector<double> outputs;
+	net_.getResults(outputs);
+	
+	return outputs[0];
 }

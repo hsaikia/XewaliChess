@@ -317,7 +317,6 @@ public:
   static void init_zobrist();
   static void init_piece_square_tables();
   static bool is_valid_fen(const std::string &str);
-
 private:
   // Initialization helper functions (used while setting up a position)
   void clear();

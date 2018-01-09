@@ -19,6 +19,50 @@ std::vector<double> Features::getFeatureVector() const
 	return V;
 }
 
+/*
+void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos) {
+
+	V.clear();
+
+	// Color white = 0. black = 1
+	// Pieces : PAWN = 1, KNIGHT = 2, BISHOP = 3, ROOK = 4, QUEEN = 5, KING = 6
+	// Squares : 64
+	// 2 * 6 * 12 = 768
+	// idx =  square * 12 + color * 6 + (piece - 1)
+
+	// side to move = 1 bit
+	// W can castle = 2 bit
+	// B can castle = 2 bit
+	// en passant available = 1 bit
+
+	// total = 774
+
+	V.resize(774, 0);
+
+	for (Square S = SQ_A1; S <= SQ_H8; S++) {
+
+		if (S == pos->ep_square()) {
+			V[773] = pos->side_to_move() == Color::WHITE ? 1 : -1;
+		}
+
+		if (!pos->square_is_occupied(S)) {
+			continue;
+		}
+
+		auto pt = pos->type_of_piece_on(S);
+		auto c = pos->color_of_piece_on(S);
+
+		V[12 * S + 6 * c + pt - 1] = 1;
+	}
+
+	V[768] = pos->side_to_move() == Color::WHITE ? 1 : -1;
+	V[769] = pos->can_castle_kingside(Color::WHITE) ? 1 : 0;
+	V[770] = pos->can_castle_queenside(Color::WHITE) ? 1 : 0;
+	V[771] = pos->can_castle_kingside(Color::BLACK) ? 1 : 0;
+	V[772] = pos->can_castle_queenside(Color::BLACK) ? 1 : 0;	
+}
+*/
+
 void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos)
 {
 	auto side = pos->side_to_move();
@@ -26,11 +70,6 @@ void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos)
 	V.clear();
 	V.resize(numFeatures_);
 
-	//V[0] = pos->queen_count(Color::WHITE) - pos->queen_count(Color::BLACK);
-	//V[1] = pos->bishop_count(Color::WHITE) - pos->bishop_count(Color::BLACK);
-	//V[2] = pos->rook_count(Color::WHITE) - pos->rook_count(Color::BLACK);
-	//V[3] = pos->knight_count(Color::WHITE) - pos->knight_count(Color::BLACK);
-	//V[4] = pos->pawn_count(Color::WHITE) - pos->pawn_count(Color::BLACK);
 	V[0] = side == Color::WHITE ? 1 : -1;
 
 	//V[5] = 0; // white attacks - black attacks
@@ -100,8 +139,7 @@ void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos)
 			}
 			else {
 				V[6] -= pos->king_attacks_square(sq, s);
-			}
-			
+			}	
 		}
 	}
 
@@ -112,6 +150,56 @@ void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos)
 	V[7] = int(pos->can_castle_kingside(Color::WHITE)) - int(pos->can_castle_kingside(Color::BLACK));
 	V[8] = int(pos->can_castle_queenside(Color::WHITE)) - int(pos->can_castle_queenside(Color::BLACK));
 	V[9] = pos->is_check() ? -V[0] : 0;
+
+	// piece counts
+	V[10] = pos->queen_count(Color::WHITE) - pos->queen_count(Color::BLACK);
+	V[11] = pos->bishop_count(Color::WHITE) - pos->bishop_count(Color::BLACK);
+	V[12] = pos->rook_count(Color::WHITE) - pos->rook_count(Color::BLACK);
+	V[13] = pos->knight_count(Color::WHITE) - pos->knight_count(Color::BLACK);
+	V[14] = pos->pawn_count(Color::WHITE) - pos->pawn_count(Color::BLACK);
+
+	for (int i = 10; i < 15; i++) {
+		V[i] /= 2;
+	}
+
+	V[15] = pos->has_pawn_on_7th(Color::WHITE) - pos->has_pawn_on_7th(Color::BLACK);
+
+	/*
+	// Color white = 0. black = 1
+	// Pieces : PAWN = 1, KNIGHT = 2, BISHOP = 3, ROOK = 4, QUEEN = 5, KING = 6
+	
+	int attack_and_defend[2][2][6][6]; // 144 features
+	memset(attack_and_defend, 0, sizeof(attack_and_defend));
+
+	for (Square fr = SQ_A1; fr <= SQ_H8; fr++) {
+
+		if (!pos->square_is_occupied(fr)) {
+			continue;
+		}
+
+		for (Square to = SQ_A1; to <= SQ_H8; to++) {
+			if (fr == to) {
+				continue;
+			}
+
+			if (!pos->square_is_occupied(to)) {
+				continue;
+			}
+
+			if (!pos->piece_attacks_square(fr, to)) {
+				continue;
+			}
+		
+			auto pieceFr = pos->type_of_piece_on(fr);
+			auto pieceTo = pos->type_of_piece_on(to);
+
+			auto pieceFrColor = pos->color_of_piece_on(fr);
+			auto pieceToColor = pos->color_of_piece_on(to);
+
+			attack_and_defend[pieceFrColor][pieceToColor][pieceFr][pieceTo]++;
+		}
+	}
+	*/
 }
 
 void Features::printFeatureVector() const

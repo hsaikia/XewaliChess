@@ -29,7 +29,7 @@ public:
 	static size_t getNumFeatures();
 
 private:
-	static const size_t numFeatures_ = 10;
+	static const size_t numFeatures_ = 16;
 	std::vector<double> V;
 };
 

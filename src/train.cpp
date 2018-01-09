@@ -22,14 +22,14 @@ Train::Train()
 
 	book_.clear();
 
-	std::vector<size_t> topo = { Features::getNumFeatures(), Features::getNumFeatures(), 1 };
+	std::vector<size_t> topo = { Features::getNumFeatures(), 3, 1 };
 	std::vector<double> eta = { 0.15, 0.15, 0.15 };
 	std::vector<double> alpha = { 0.5, 0.5, 0.5 };
-	std::vector<ActivationFunction> actFuns = { TANH, TANH, TANH };
+	std::vector<ActivationFunction> actFuns = { TANHL, TANHL, TANH };
 	net_.init(topo, eta, alpha, actFuns);
 }
 
-int Train::playGame(const int id)
+int Train::playGame(const int id, int movesToCheck)
 {
 	auto pos = std::make_shared<Position>(StartPosition);
 	int one_side_moves = 0;
@@ -46,21 +46,34 @@ int Train::playGame(const int id)
 		// Evaluate the subtree under this position using MCTS
 		// Evaluate n positions in this subtree
 
-		int positionsToEval = 1000;
-		while (positionsToEval--) {
-			searchSubtree(pos, book_);
+		
+		int maxDepth = 0;
+		double avgDepth = 0;
+		for (int p = 0; p < movesToCheck; p++) {
+			int depth;
+			searchSubtree(pos, book_, depth);
+			maxDepth = max(depth, maxDepth);
+			avgDepth = (avgDepth * p + depth) / (p + 1);
 		}
 
-		std::cout << "Searching done.. picking move " << one_side_moves << "\n";
+		std::cout << "Searching done.. picking move " << (one_side_moves + 2) / 2 << "\n";
+		std::cout << "Max Depth searched " << maxDepth << "\n";
+		std::cout << "Average Depth " << avgDepth << "\n";
 
 		// Now pick the next move
 		Move m = pickNextMove(pos, book_);
+		std::string C = pos->side_to_move() == Color::WHITE ? "White" : "Black";
 
 		//play a move
 		UndoInfo u;
 		game.push_back(m);
 		pos->do_move(m, u);
 		one_side_moves++;
+
+		auto fen = pos->to_fen();
+
+		std::cout << C <<" played move with MCTS score " << book_[fen].averageEval << "\n";
+		std::cout << "NN evaluation " << evaluatePosition(pos) << "\n";
 	}
 
 	//train on the game if result is a win or loss
@@ -89,25 +102,29 @@ int Train::playGame(const int id)
 	ss.str(std::string());
 	ss << "Output/NN" << id << ".network";
 	net_.writeNNToFile(ss.str());
-	
+
+	ss.str(std::string());
+	ss << "Output/Positions" << id << ".book";
+	writeBook(ss.str());
+
 	return result;
 }
 
-void Train::searchSubtree(const std::shared_ptr<Position> pos, std::map<std::string, Record>& book)
+void Train::searchSubtree(const std::shared_ptr<Position> pos, std::map<std::string, Record>& book, int& depth)
 {
 	std::shared_ptr<Position> leaf = std::make_shared<Position>(*pos);
 	std::vector<Move> moves;
 	int result = 0;
 	bool reachedTerminalPosition = false;
 	//traverse until leaf is found
-	int depth = 0;
+	depth = 0;
 	while (true) {
+		reachedTerminalPosition = Train::checkTermination(leaf, result, depth >= 2 * trainingGameMovesLimit);
 		auto fen = leaf->to_fen();
 		if (book.find(fen) == book.end()) { // never seen this position before!
 			break;
 		}
 
-		reachedTerminalPosition = Train::checkTermination(leaf, result, depth >= trainingGameMovesLimit);
 		if (reachedTerminalPosition) {
 			break;
 		}
@@ -140,6 +157,9 @@ void Train::searchSubtree(const std::shared_ptr<Position> pos, std::map<std::str
 		auto fen = tmp->to_fen();
 		book[fen].averageEval = (book[fen].averageEval * book[fen].seen + val) / (book[fen].seen + 1);
 		book[fen].seen++;
+
+		UndoInfo u;
+		tmp->do_move(moves[i], u);
 	}
 
 }
@@ -170,10 +190,13 @@ void Train::trainGame(const std::vector<Move>& game, int result)
 }
 
 // pick the immediate next move according to current mcts evaluation
+// if a next move results in immediate mate, return that move at all costs
 Move Train::pickNextMove(const std::shared_ptr<Position> pos, const std::map<std::string, Record>& book)
 {
 	Move mlist[256];
 	bool whiteToMove = (pos->side_to_move() == Color::WHITE);
+
+	auto fen = pos->to_fen(); // for debugging
 
 	auto num_legal_moves = pos->all_legal_moves(mlist);
 
@@ -191,6 +214,12 @@ Move Train::pickNextMove(const std::shared_ptr<Position> pos, const std::map<std
 		std::unique_ptr<Position> posTemp = std::make_unique<Position>(*pos);
 		posTemp->reset_game_ply();
 		posTemp->do_move(mlist[i], u);
+
+		//found mate
+		if (posTemp->is_mate()) {
+			return mlist[i];
+		}
+
 		auto posFEN = posTemp->to_fen();
 		if (book.find(posFEN) != book.end()) { // seen this position before
 			auto entry = book.find(posFEN)->second;
@@ -205,7 +234,7 @@ Move Train::pickNextMove(const std::shared_ptr<Position> pos, const std::map<std
 		moveScores[i].move = mlist[i];
 		//eval till now + mcts low visit prob
 		
-		double score = mctsVisited[i].seen == 0 ? 1000 : sqrt(2.0 * log(totPositionsSeenFromThisPos) / mctsVisited[i].seen);
+		double score = sqrt(2.0 * log(totPositionsSeenFromThisPos + 1) / (mctsVisited[i].seen + 1));
 		// if black to move, make probabilities negative
 		score *= whiteToMove ? 1 : -1;
 
@@ -260,6 +289,18 @@ void Train::writeToPgn(const std::vector<Move>& game, const int result, const st
 	file.close();
 }
 
+void Train::writeBook(const std::string & filename) const
+{
+	std::ofstream file;
+	file.open(filename);
+
+	for (auto& entry : book_) {
+		file << entry.second.averageEval << " " << entry.second.seen << " " << entry.first << "\n";
+	}
+
+	file.close();
+}
+
 bool Train::checkTermination(const std::shared_ptr<Position> pos, int & result, bool drawCondition)
 {
 	bool whiteToMove = (pos->side_to_move() == Color::WHITE);
@@ -290,6 +331,8 @@ bool Train::checkTermination(const std::shared_ptr<Position> pos, int & result, 
 
 double Train::evaluatePosition(const std::shared_ptr<Position> pos)
 {
+	auto fen = pos->to_fen(); // for debugging only
+
 	Features f;
 	f.setFeaturesFromPos(pos);
 

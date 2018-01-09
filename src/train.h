@@ -45,12 +45,12 @@ struct Record {
 class Train {
 public:
 	Train();
-	int playGame(const int id);
+	int playGame(const int id, int movesToCheck);
 	static void writeToPgn(const std::vector<Move>& game, const int result, const std::string& filename);
 	//void playFromPos(const std::shared_ptr<Position> pos);
 	
 	//void addToBook(const std::shared_ptr<Position> pos, int result);
-	//void writeBook(const std::string& filename) const;
+	void writeBook(const std::string& filename) const;
 	//void readBook(const std::string& filename);
 	
 
@@ -63,7 +63,7 @@ private:
 	*/
 	void trainGame(const std::vector<Move>& game, int result);
 	Move pickNextMove(const std::shared_ptr<Position> pos, const std::map<std::string, Record>& book);
-	void searchSubtree(const std::shared_ptr<Position> pos, std::map<std::string, Record>& book);
+	void searchSubtree(const std::shared_ptr<Position> pos, std::map<std::string, Record>& book, int& depth);
 	void backProp(const std::shared_ptr<Position> pos, int result);
 	static bool checkTermination(const std::shared_ptr<Position> pos, int& result, bool drawCondition);
 	double evaluatePosition(const std::shared_ptr<Position> pos);

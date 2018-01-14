@@ -19,6 +19,19 @@ std::vector<double> Features::getFeatureVector() const
 	return V;
 }
 
+double Features::evalStatic() const
+{
+	double ret = 
+		1.0 * V[0] // side to move - tempo
+		+ 1.0 * (V[1] + V[2] + V[3] + V[4] + V[5]) // influence
+		+ 0.2 * (V[7] + V[8]) // castling rights
+		+ 0.1 * V[9] // is in check
+		+ 2.0 * (V[10] * 9 + V[11] * 3 + V[12] * 5 + V[13] * 3 + V[14]) // material
+		+ 5 * V[15]; //passed pawn
+
+	return ret / 50.0;
+}
+
 /*
 void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos) {
 
@@ -143,9 +156,9 @@ void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos)
 		}
 	}
 
-	for (int i = 1; i < 7; i++) {
-		V[i] /= 28;
-	}
+	//for (int i = 1; i < 7; i++) {
+	//	V[i] /= 28;
+	//}
 
 	V[7] = int(pos->can_castle_kingside(Color::WHITE)) - int(pos->can_castle_kingside(Color::BLACK));
 	V[8] = int(pos->can_castle_queenside(Color::WHITE)) - int(pos->can_castle_queenside(Color::BLACK));
@@ -158,9 +171,9 @@ void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos)
 	V[13] = pos->knight_count(Color::WHITE) - pos->knight_count(Color::BLACK);
 	V[14] = pos->pawn_count(Color::WHITE) - pos->pawn_count(Color::BLACK);
 
-	for (int i = 10; i < 15; i++) {
-		V[i] /= 2;
-	}
+	//for (int i = 10; i < 15; i++) {
+	//	V[i] /= 2;
+	//}
 
 	V[15] = pos->has_pawn_on_7th(Color::WHITE) - pos->has_pawn_on_7th(Color::BLACK);
 

@@ -19,6 +19,7 @@ using namespace NN;
 using namespace Chess;
 
 struct MoveScore {
+	int index; // move index in move list
 	Move move;
 	double score;
 
@@ -45,7 +46,7 @@ struct Record {
 class Train {
 public:
 	Train();
-	int playGame(const int id, int movesToCheck);
+	int playGame(const int id, int movesToCheck, bool trainNN);
 	static void writeToPgn(const std::vector<Move>& game, const int result, const std::string& filename);
 	//void playFromPos(const std::shared_ptr<Position> pos);
 	
@@ -62,11 +63,16 @@ private:
 	* Picks best next move using book(MCTS visit prob) + Average Evaluation
 	*/
 	void trainGame(const std::vector<Move>& game, int result);
-	Move pickNextMove(const std::shared_ptr<Position> pos, const std::map<std::string, Record>& book);
-	void searchSubtree(const std::shared_ptr<Position> pos, std::map<std::string, Record>& book, int& depth);
+	Move pickNextMove(
+		const std::shared_ptr<Position> pos, 
+		const std::map<std::string, Record>& book, 
+		bool ignoreExploration,
+		bool printDebug
+	);
+	void searchSubtree(const std::shared_ptr<Position> pos, std::map<std::string, Record>& book, int& depth, bool NN);
 	void backProp(const std::shared_ptr<Position> pos, int result);
 	static bool checkTermination(const std::shared_ptr<Position> pos, int& result, bool drawCondition);
-	double evaluatePosition(const std::shared_ptr<Position> pos);
+	double evaluatePosition(const std::shared_ptr<Position> pos, bool NN);
 
 	// reintroducing for bootstrap..
 	std::map<std::string, Record> book_;

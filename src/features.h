@@ -24,6 +24,7 @@ class Features {
 public:
 	Features();
 	std::vector<double> getFeatureVector() const;
+	double evalStatic() const;
 	void setFeaturesFromPos(const std::shared_ptr<Position> pos);
 	void printFeatureVector() const;
 	static size_t getNumFeatures();

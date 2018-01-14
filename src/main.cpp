@@ -12,14 +12,14 @@ using namespace Chess;
 int main() {
 	//Train N games
 	int games = 1000;
-	int movesToCheck = 1000;
+	int movesToCheck = 2000;
 
 	Train t;
 	//t.net_.readNNFromFile("Output/NN.network");
 	//t.readBook("Output/Positions.book");
 
 	for (int i = 0; i < games; i++) {
-		int res = t.playGame(i + 1, movesToCheck);
+		int res = t.playGame(i + 1, movesToCheck, false);
 	}
 
 	////testing features

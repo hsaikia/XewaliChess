@@ -29,7 +29,7 @@ Train::Train()
 	net_.init(topo, eta, alpha, actFuns);
 }
 
-int Train::playGame(const int id, int movesToCheck)
+int Train::playGame(const int id, int movesToCheck, bool trainNN)
 {
 	auto pos = std::make_shared<Position>(StartPosition);
 	int one_side_moves = 0;
@@ -51,7 +51,7 @@ int Train::playGame(const int id, int movesToCheck)
 		double avgDepth = 0;
 		for (int p = 0; p < movesToCheck; p++) {
 			int depth;
-			searchSubtree(pos, book_, depth);
+			searchSubtree(pos, book_, depth, trainNN);
 			maxDepth = max(depth, maxDepth);
 			avgDepth = (avgDepth * p + depth) / (p + 1);
 		}
@@ -61,7 +61,8 @@ int Train::playGame(const int id, int movesToCheck)
 		std::cout << "Average Depth " << avgDepth << "\n";
 
 		// Now pick the next move
-		Move m = pickNextMove(pos, book_);
+		// Ignore exploration and pick the best average MCTS value move
+		Move m = pickNextMove(pos, book_, true, false);
 		std::string C = pos->side_to_move() == Color::WHITE ? "White" : "Black";
 
 		//play a move
@@ -73,11 +74,13 @@ int Train::playGame(const int id, int movesToCheck)
 		auto fen = pos->to_fen();
 
 		std::cout << C <<" played move with MCTS score " << book_[fen].averageEval << "\n";
-		std::cout << "NN evaluation " << evaluatePosition(pos) << "\n";
+		std::cout << "Evaluation " << evaluatePosition(pos, trainNN) << "\n";
+
+		//getchar();
 	}
 
 	//train on the game if result is a win or loss
-	if (result != 0) {
+	if (result != 0 && trainNN) {
 		trainGame(game, result);
 	}
 
@@ -99,10 +102,13 @@ int Train::playGame(const int id, int movesToCheck)
 	std::cout << "Played a game of " << (game.size() + 1) / 2 << " moves. Result " << result << " \n";
 	std::cout << "Book has " << book_.size() << " entries.\n";
 
-	ss.str(std::string());
-	ss << "Output/NN" << id << ".network";
-	net_.writeNNToFile(ss.str());
+	if (trainNN) {
 
+		ss.str(std::string());
+		ss << "Output/NN" << id << ".network";
+		net_.writeNNToFile(ss.str());
+
+	}
 	ss.str(std::string());
 	ss << "Output/Positions" << id << ".book";
 	writeBook(ss.str());
@@ -110,7 +116,7 @@ int Train::playGame(const int id, int movesToCheck)
 	return result;
 }
 
-void Train::searchSubtree(const std::shared_ptr<Position> pos, std::map<std::string, Record>& book, int& depth)
+void Train::searchSubtree(const std::shared_ptr<Position> pos, std::map<std::string, Record>& book, int& depth, bool NN)
 {
 	std::shared_ptr<Position> leaf = std::make_shared<Position>(*pos);
 	std::vector<Move> moves;
@@ -129,7 +135,7 @@ void Train::searchSubtree(const std::shared_ptr<Position> pos, std::map<std::str
 			break;
 		}
 
-		Move m = pickNextMove(leaf, book);
+		Move m = pickNextMove(leaf, book, false, false);
 		moves.push_back(m);
 
 		UndoInfo u;
@@ -139,7 +145,7 @@ void Train::searchSubtree(const std::shared_ptr<Position> pos, std::map<std::str
 
 	// Now we encountered a leaf which has not been seen or evaluated before
 	// Evaluate it using the NN
-	double val = evaluatePosition(leaf);
+	double val = evaluatePosition(leaf, NN);
 
 	// If the leaf ends up in a win, loss or draw, set the value accordingly
 	if (reachedTerminalPosition) {
@@ -191,7 +197,7 @@ void Train::trainGame(const std::vector<Move>& game, int result)
 
 // pick the immediate next move according to current mcts evaluation
 // if a next move results in immediate mate, return that move at all costs
-Move Train::pickNextMove(const std::shared_ptr<Position> pos, const std::map<std::string, Record>& book)
+Move Train::pickNextMove(const std::shared_ptr<Position> pos, const std::map<std::string, Record>& book, bool ignoreExploration, bool printDebug)
 {
 	Move mlist[256];
 	bool whiteToMove = (pos->side_to_move() == Color::WHITE);
@@ -232,17 +238,48 @@ Move Train::pickNextMove(const std::shared_ptr<Position> pos, const std::map<std
 	
 	for (int i = 0; i < num_legal_moves; i++) {
 		moveScores[i].move = mlist[i];
-		//eval till now + mcts low visit prob
+		moveScores[i].index = i;
 		
-		double score = sqrt(2.0 * log(totPositionsSeenFromThisPos + 1) / (mctsVisited[i].seen + 1));
-		// if black to move, make probabilities negative
-		score *= whiteToMove ? 1 : -1;
+		if (ignoreExploration) {
+			moveScores[i].score = mctsVisited[i].averageEval;
+		}
+		else {
+			//eval till now + mcts low visit prob
+			double score = sqrt(2.0 * log(totPositionsSeenFromThisPos + 1) / (mctsVisited[i].seen + 1));
+			// if black to move, make probabilities negative
+			score *= whiteToMove ? 1 : -1;
 
-		moveScores[i].score = score + mctsVisited[i].averageEval;
+			// 1 to exploration
+			// 1 to exploitation
+
+			moveScores[i].score = score + mctsVisited[i].averageEval;
+		}
 	}
 
 	//sort the moves according to their score
 	sort(moveScores.begin(), moveScores.end(), MoveScore::compare);
+
+	if (printDebug) {
+		int chosenMoveIdx = whiteToMove ? 0 : num_legal_moves - 1;
+		for (int i = 0; i < num_legal_moves; i++) {
+			std::cout << "[" << square_to_string(move_from(moveScores[i].move))
+				<< square_to_string(move_to(moveScores[i].move))
+				<< "] Total Score "
+				<< moveScores[i].score
+				<< " = Exploitation["
+				<< mctsVisited[moveScores[i].index].averageEval
+				<< "] + Exploration["
+				<< sqrt(2.0 * log(totPositionsSeenFromThisPos + 1) / (mctsVisited[moveScores[i].index].seen + 1))
+				<< "] Seen "
+				<< mctsVisited[moveScores[i].index].seen;
+			if (chosenMoveIdx == i) {
+				std::cout << " [Chosen Move]\n";
+			}
+			else {
+				std::cout << "\n";
+			}
+		}
+	}
 
 	// if white to move, choose move with highest score, else choose one with lowest score
 	return whiteToMove ? moveScores[0].move : moveScores[num_legal_moves - 1].move;
@@ -329,17 +366,18 @@ bool Train::checkTermination(const std::shared_ptr<Position> pos, int & result, 
 	return false;
 }
 
-double Train::evaluatePosition(const std::shared_ptr<Position> pos)
+double Train::evaluatePosition(const std::shared_ptr<Position> pos, bool NN)
 {
-	auto fen = pos->to_fen(); // for debugging only
+	//auto fen = pos->to_fen(); // for debugging only
 
 	Features f;
 	f.setFeaturesFromPos(pos);
 
-	net_.feedForward(f.getFeatureVector());
-
-	std::vector<double> outputs;
-	net_.getResults(outputs);
-	
-	return outputs[0];
+	if (NN) {
+		net_.feedForward(f.getFeatureVector());
+		std::vector<double> outputs;
+		net_.getResults(outputs);
+		return outputs[0];
+	}
+	return f.evalStatic();
 }

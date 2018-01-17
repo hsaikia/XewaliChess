@@ -22,14 +22,14 @@ std::vector<double> Features::getFeatureVector() const
 double Features::evalStatic() const
 {
 	double ret = 
-		1.0 * V[0] // side to move - tempo
+		0.5 * V[0] // side to move - tempo
 		+ 1.0 * (V[1] + V[2] + V[3] + V[4] + V[5]) // influence
 		+ 0.2 * (V[7] + V[8]) // castling rights
 		+ 0.1 * V[9] // is in check
-		+ 2.0 * (V[10] * 9 + V[11] * 3 + V[12] * 5 + V[13] * 3 + V[14]) // material
-		+ 5 * V[15]; //passed pawn
+		+ 10.0 * (V[10] * 9 + V[11] * 3 + V[12] * 5 + V[13] * 3 + V[14]) // material
+		+ 5 * V[15]; //7th rank pawn
 
-	return ret / 50.0;
+	return ret / 300.0;
 }
 
 /*
@@ -160,8 +160,10 @@ void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos)
 	//	V[i] /= 28;
 	//}
 
-	V[7] = int(pos->can_castle_kingside(Color::WHITE)) - int(pos->can_castle_kingside(Color::BLACK));
-	V[8] = int(pos->can_castle_queenside(Color::WHITE)) - int(pos->can_castle_queenside(Color::BLACK));
+	// TODO - make these king safety parameters
+	// can castle does not work because after castling it favors the opposite side, so it actually prevents castling
+	V[7] = 0; // int(pos->can_castle_kingside(Color::WHITE)) - int(pos->can_castle_kingside(Color::BLACK));
+	V[8] = 0; //  int(pos->can_castle_queenside(Color::WHITE)) - int(pos->can_castle_queenside(Color::BLACK));
 	V[9] = pos->is_check() ? -V[0] : 0;
 
 	// piece counts

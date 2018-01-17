@@ -43,10 +43,14 @@ struct Record {
 	}
 };
 
-class Train {
+class Engine {
 public:
-	Train();
+	Engine();
+	void init();
+	bool isReady() const;
+	void setPosition(const std::string & fen, const std::vector<std::string>& moves);
 	int playGame(const int id, int movesToCheck, bool trainNN);
+	std::string playMove(const int positionsToAnalyze);
 	static void writeToPgn(const std::vector<Move>& game, const int result, const std::string& filename);
 	//void playFromPos(const std::shared_ptr<Position> pos);
 	
@@ -59,10 +63,10 @@ public:
 	NeuralNetwork net_;
 	
 private:
+	void trainGame(const std::vector<Move>& game, int result);
 	/*
 	* Picks best next move using book(MCTS visit prob) + Average Evaluation
 	*/
-	void trainGame(const std::vector<Move>& game, int result);
 	Move pickNextMove(
 		const std::shared_ptr<Position> pos, 
 		const std::map<std::string, Record>& book, 
@@ -76,4 +80,6 @@ private:
 
 	// reintroducing for bootstrap..
 	std::map<std::string, Record> book_;
+	std::shared_ptr<Position> pos_;
+	bool isReady_;
 };

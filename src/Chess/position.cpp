@@ -1946,10 +1946,11 @@ bool Position::is_draw() const {
     return true;
 
   // Draw by repetition?
-  //for(int i = 2; i < Min(gamePly, rule50); i += 2)
-  //  if(history[gamePly - i] == key)
-  //    return true;
-
+  if (Min(gamePly, rule50) > 4) {
+	  if (history[gamePly - 4] == key && history[gamePly - 2] == key)
+		  return true;
+  }
+    
   return false;
 }
 

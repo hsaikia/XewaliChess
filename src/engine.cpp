@@ -3,7 +3,7 @@
 * email : saikia@kth.se
 */
 
-#include "train.h"
+#include "engine.h"
 #include "features.h"
 #include <algorithm>
 #include <sstream>
@@ -11,7 +11,12 @@
 
 const int trainingGameMovesLimit = 100;
 
-Train::Train()
+Engine::Engine()
+{
+	isReady_ = false;
+}
+
+void Engine::init()
 {
 	init_mersenne();
 	init_direction_table();
@@ -27,9 +32,55 @@ Train::Train()
 	std::vector<double> alpha = { 0.5, 0.5, 0.5 };
 	std::vector<ActivationFunction> actFuns = { TANHL, TANHL, TANH };
 	net_.init(topo, eta, alpha, actFuns);
+	isReady_ = true;
 }
 
-int Train::playGame(const int id, int movesToCheck, bool trainNN)
+bool Engine::isReady() const
+{
+	return isReady_;
+}
+
+void Engine::setPosition(const std::string & fen, const std::vector<std::string>& moves)
+{
+	isReady_ = false;
+	pos_ = std::make_shared<Position>(fen);
+	
+	for (auto& move : moves) {
+		UndoInfo u;
+		Position posTemp = *pos_;
+		pos_->do_move(move_from_string(posTemp, move), u);
+	}
+	isReady_ = true;
+}
+
+std::string Engine::playMove(const int positionsToAnalyze)
+{
+	isReady_ = false;
+	int result;
+
+	if (Engine::checkTermination(pos_, result, false)) {
+		isReady_ = true;
+		return "";
+	}
+
+	int maxDepth = 0;
+	double avgDepth = 0;
+	for (int p = 0; p < positionsToAnalyze; p++) {
+		int depth;
+		searchSubtree(pos_, book_, depth, false);
+		maxDepth = max(depth, maxDepth);
+		avgDepth = (avgDepth * p + depth) / (p + 1);
+	}
+
+	std::cout << "Max Depth searched " << maxDepth << "\n";
+	std::cout << "Average Depth " << avgDepth << "\n";
+
+	Move m = pickNextMove(pos_, book_, true, false); // with debug info printed
+	isReady_ = true;
+	return move_to_string(m);
+}
+
+int Engine::playGame(const int id, int movesToCheck, bool trainNN)
 {
 	auto pos = std::make_shared<Position>(StartPosition);
 	int one_side_moves = 0;
@@ -39,7 +90,7 @@ int Train::playGame(const int id, int movesToCheck, bool trainNN)
 
 	while (true) { // game continues
 
-		if (Train::checkTermination(pos, result, one_side_moves >= 2 * trainingGameMovesLimit)) {
+		if (Engine::checkTermination(pos, result, one_side_moves >= 2 * trainingGameMovesLimit)) {
 			break;
 		}
 
@@ -62,7 +113,8 @@ int Train::playGame(const int id, int movesToCheck, bool trainNN)
 
 		// Now pick the next move
 		// Ignore exploration and pick the best average MCTS value move
-		Move m = pickNextMove(pos, book_, true, false);
+		//Move m = pickNextMove(pos, book_, true, false); // no debug info printed
+		Move m = pickNextMove(pos, book_, true, true); // with debug info printed
 		std::string C = pos->side_to_move() == Color::WHITE ? "White" : "Black";
 
 		//play a move
@@ -76,7 +128,7 @@ int Train::playGame(const int id, int movesToCheck, bool trainNN)
 		std::cout << C <<" played move with MCTS score " << book_[fen].averageEval << "\n";
 		std::cout << "Evaluation " << evaluatePosition(pos, trainNN) << "\n";
 
-		//getchar();
+		getchar();
 	}
 
 	//train on the game if result is a win or loss
@@ -97,7 +149,7 @@ int Train::playGame(const int id, int movesToCheck, bool trainNN)
 		<< resStr
 		<< (one_side_moves + 2) / 2 << "moves"
 		<< ".pgn";
-	Train::writeToPgn(game, result, ss.str());
+	Engine::writeToPgn(game, result, ss.str());
 	
 	std::cout << "Played a game of " << (game.size() + 1) / 2 << " moves. Result " << result << " \n";
 	std::cout << "Book has " << book_.size() << " entries.\n";
@@ -116,7 +168,7 @@ int Train::playGame(const int id, int movesToCheck, bool trainNN)
 	return result;
 }
 
-void Train::searchSubtree(const std::shared_ptr<Position> pos, std::map<std::string, Record>& book, int& depth, bool NN)
+void Engine::searchSubtree(const std::shared_ptr<Position> pos, std::map<std::string, Record>& book, int& depth, bool NN)
 {
 	std::shared_ptr<Position> leaf = std::make_shared<Position>(*pos);
 	std::vector<Move> moves;
@@ -125,7 +177,7 @@ void Train::searchSubtree(const std::shared_ptr<Position> pos, std::map<std::str
 	//traverse until leaf is found
 	depth = 0;
 	while (true) {
-		reachedTerminalPosition = Train::checkTermination(leaf, result, depth >= 2 * trainingGameMovesLimit);
+		reachedTerminalPosition = Engine::checkTermination(leaf, result, depth >= 2 * trainingGameMovesLimit);
 		auto fen = leaf->to_fen();
 		if (book.find(fen) == book.end()) { // never seen this position before!
 			break;
@@ -170,7 +222,7 @@ void Train::searchSubtree(const std::shared_ptr<Position> pos, std::map<std::str
 
 }
 
-void Train::backProp(const std::shared_ptr<Position> pos, int result)
+void Engine::backProp(const std::shared_ptr<Position> pos, int result)
 {		
 	Features f;
 	f.setFeaturesFromPos(pos);
@@ -184,7 +236,7 @@ void Train::backProp(const std::shared_ptr<Position> pos, int result)
 	net_.backProp(res);
 }
 
-void Train::trainGame(const std::vector<Move>& game, int result)
+void Engine::trainGame(const std::vector<Move>& game, int result)
 {
 	std::shared_ptr<Position> pos = std::make_shared<Position>(StartPosition);
 	backProp(pos, result);
@@ -197,7 +249,7 @@ void Train::trainGame(const std::vector<Move>& game, int result)
 
 // pick the immediate next move according to current mcts evaluation
 // if a next move results in immediate mate, return that move at all costs
-Move Train::pickNextMove(const std::shared_ptr<Position> pos, const std::map<std::string, Record>& book, bool ignoreExploration, bool printDebug)
+Move Engine::pickNextMove(const std::shared_ptr<Position> pos, const std::map<std::string, Record>& book, bool ignoreExploration, bool printDebug)
 {
 	Move mlist[256];
 	bool whiteToMove = (pos->side_to_move() == Color::WHITE);
@@ -244,15 +296,22 @@ Move Train::pickNextMove(const std::shared_ptr<Position> pos, const std::map<std
 			moveScores[i].score = mctsVisited[i].averageEval;
 		}
 		else {
-			//eval till now + mcts low visit prob
-			double score = sqrt(2.0 * log(totPositionsSeenFromThisPos + 1) / (mctsVisited[i].seen + 1));
 			// if black to move, make probabilities negative
-			score *= whiteToMove ? 1 : -1;
+			double score = whiteToMove ? 1 : -1;
 
-			// 1 to exploration
+			//eval till now + mcts low visit prob
+
+			if (mctsVisited[i].seen == 0) {
+				score *= 1000;
+			}
+			else {
+				score *= sqrt(2.0 * log(totPositionsSeenFromThisPos) / (mctsVisited[i].seen));
+			}
+
+			// 0.5 to exploration
 			// 1 to exploitation
 
-			moveScores[i].score = score + mctsVisited[i].averageEval;
+			moveScores[i].score = 0.25 * score + mctsVisited[i].averageEval;
 		}
 	}
 
@@ -285,7 +344,7 @@ Move Train::pickNextMove(const std::shared_ptr<Position> pos, const std::map<std
 	return whiteToMove ? moveScores[0].move : moveScores[num_legal_moves - 1].move;
 }
 
-void Train::writeToPgn(const std::vector<Move>& game, const int result, const std::string & filename)
+void Engine::writeToPgn(const std::vector<Move>& game, const int result, const std::string & filename)
 {
 	std::ofstream file;
 	file.open(filename);
@@ -326,7 +385,7 @@ void Train::writeToPgn(const std::vector<Move>& game, const int result, const st
 	file.close();
 }
 
-void Train::writeBook(const std::string & filename) const
+void Engine::writeBook(const std::string & filename) const
 {
 	std::ofstream file;
 	file.open(filename);
@@ -338,12 +397,11 @@ void Train::writeBook(const std::string & filename) const
 	file.close();
 }
 
-bool Train::checkTermination(const std::shared_ptr<Position> pos, int & result, bool drawCondition)
+bool Engine::checkTermination(const std::shared_ptr<Position> pos, int & result, bool drawCondition)
 {
 	bool whiteToMove = (pos->side_to_move() == Color::WHITE);
 
-	// removed draw by repetition from the code
-	// TODO : Incorporate this into the features 
+	// 50 moves / threefold repetition / insufficient material to mate -> draw
 	if (pos->is_draw() || drawCondition) {
 		result = 0;
 		return true;
@@ -366,7 +424,7 @@ bool Train::checkTermination(const std::shared_ptr<Position> pos, int & result, 
 	return false;
 }
 
-double Train::evaluatePosition(const std::shared_ptr<Position> pos, bool NN)
+double Engine::evaluatePosition(const std::shared_ptr<Position> pos, bool NN)
 {
 	//auto fen = pos->to_fen(); // for debugging only
 
@@ -381,3 +439,4 @@ double Train::evaluatePosition(const std::shared_ptr<Position> pos, bool NN)
 	}
 	return f.evalStatic();
 }
+

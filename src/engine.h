@@ -13,7 +13,7 @@
 #include "Chess/mersenne.h"
 #include "Chess/movepick.h"
 #include "Chess/san.h"
-#include "../../../NeuralNetworkTest/src/NeuralNetwork.h"
+#include "NeuralNetwork/NeuralNetwork.h"
 
 using namespace NN;
 using namespace Chess;

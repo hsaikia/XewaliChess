@@ -7,34 +7,36 @@
 #include "features.h"
 #include <ctime>
 #include <sstream>
-using namespace Chess;
+#include <iostream>
+//using namespace Chess;
 
-//int main1() {
-//	//Train N games
-//	int games = 1000;
-//	int movesToCheck = 6000;
-//
-//	Engine t;
-//	//t.net_.readNNFromFile("Output/NN.network");
-//	//t.readBook("Output/Positions.book");
-//
-//	for (int i = 0; i < games; i++) {
-//		int res = t.playGame(i + 1, movesToCheck, false);
-//	}
-//
-//	////testing features
-//
-//	//std::string fen = "rnbqkbnr/pppp1pp1/8/4p2p/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq -";
-//
-//	//Features f;
-//	//auto position = std::make_shared<Position>(fen);
-//	//f.setFeaturesFromPos(position);
-//	//
-//	//f.printFeatureVector();
-//
-//	getchar();
-//	return 0;
-//}
+int test_main() {
+	//Train N games
+	int games = 1;
+	int movesToCheck = 30000;
+
+	Engine t;
+	t.init();
+	//t.net_.readNNFromFile("Output/NN.network");
+	//t.readBook("Output/Positions.book");
+
+	for (int i = 0; i < games; i++) {
+		int res = t.playGame(i + 1, movesToCheck, false);
+	}
+
+	////testing features
+
+	//std::string fen = "rnbqkbnr/pppp1pp1/8/4p2p/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq -";
+
+	//Features f;
+	//auto position = std::make_shared<Position>(fen);
+	//f.setFeaturesFromPos(position);
+	//
+	//f.printFeatureVector();
+
+	getchar();
+	return 0;
+}
 
 void tokenize(std::string line, std::vector<std::string>& tokens) {
 	tokens.clear();
@@ -46,7 +48,7 @@ void tokenize(std::string line, std::vector<std::string>& tokens) {
 	}
 }
 
-int main() {
+int ucimain() {
 	Engine e;
 	std::string line;
 	while (getline(std::cin, line)) {
@@ -97,7 +99,7 @@ int main() {
 		}
 		else if (tokens[0] == "go") {
 			std::cout << "info Thinking..." << std::endl;
-			std::cout << "bestmove " << e.playMove(10000) << std::endl;
+			std::cout << "bestmove " << e.playMove(40000) << std::endl;
 		}
 		else if (tokens[0] == "quit"){
 			break;
@@ -106,5 +108,11 @@ int main() {
 			//nothing to do
 		}
 	}
+	return 0;
+}
+
+int main() {
+	ucimain();
+	//test_main();
 	return 0;
 }

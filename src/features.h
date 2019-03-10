@@ -7,10 +7,10 @@
 #include <memory>
 #include "Chess/position.h"
 #include "Chess/bitboard.h"
-#include "Chess/direction.h"
-#include "Chess/mersenne.h"
-#include "Chess/movepick.h"
-#include "Chess/san.h"
+//#include "Chess/direction.h"
+//#include "Chess/mersenne.h"
+//#include "Chess/movepick.h"
+//#include "Chess/san.h"
 
 
 using namespace Chess;
@@ -30,7 +30,9 @@ public:
 	static size_t getNumFeatures();
 
 private:
-	static const size_t numFeatures_ = 16;
+	void setFeaturesFromPos1(const std::shared_ptr<Position> pos);
+	void setFeaturesFromPos2(const std::shared_ptr<Position> pos);
+	static const size_t numFeatures_ = 17;
 	std::vector<double> V;
 };
 

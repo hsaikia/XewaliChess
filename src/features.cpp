@@ -3,6 +3,8 @@
  * email : saikia@kth.se
 */
 #include "features.h"
+#include "mersenne.h"
+#include "movepick.h"
 
 Features::Features()
 {
@@ -29,7 +31,16 @@ double Features::evalStatic() const
 		+ 10.0 * (V[10] * 9 + V[11] * 3 + V[12] * 5 + V[13] * 3 + V[14]) // material
 		+ 5 * V[15]; //7th rank pawn
 
+	if (V[16] != 0) {
+		ret = V[16] * 300.0; // checkmate
+	}
+
 	return ret / 300.0;
+}
+
+void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos)
+{
+	setFeaturesFromPos2(pos);
 }
 
 /*
@@ -76,7 +87,33 @@ void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos) {
 }
 */
 
-void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos)
+
+
+// using only square infleunce
+void Features::setFeaturesFromPos1(const std::shared_ptr<Position> pos) {
+	
+	auto side = pos->side_to_move();
+	V.clear();
+	V.resize(numFeatures_);
+	
+	//V[0] = side == Color::WHITE ? 1 : -1;
+
+	//pos->piece_attacks_square
+
+	for (Square s = SQ_A1; s <= SQ_H8; s++) {
+		for (int i = 0; i < pos->queen_count(side); i++) {
+			auto sq = pos->queen_list(side, i);
+			if (side == WHITE) {
+				V[0] += pos->queen_attacks_square(sq, s);
+			}
+			else {
+				V[0] -= pos->queen_attacks_square(sq, s);
+			}
+		}
+	}
+}
+
+void Features::setFeaturesFromPos2(const std::shared_ptr<Position> pos)
 {
 	auto side = pos->side_to_move();
 
@@ -87,6 +124,7 @@ void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos)
 
 	//V[5] = 0; // white attacks - black attacks
 
+	//pos->
 	
 	for (Square s = SQ_A1; s <= SQ_H8; s++) {
 		for (Color c = WHITE; c <= BLACK; c++) {
@@ -162,6 +200,7 @@ void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos)
 
 	// TODO - make these king safety parameters
 	// can castle does not work because after castling it favors the opposite side, so it actually prevents castling
+	
 	V[7] = 0; // int(pos->can_castle_kingside(Color::WHITE)) - int(pos->can_castle_kingside(Color::BLACK));
 	V[8] = 0; //  int(pos->can_castle_queenside(Color::WHITE)) - int(pos->can_castle_queenside(Color::BLACK));
 	V[9] = pos->is_check() ? -V[0] : 0;
@@ -178,6 +217,17 @@ void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos)
 	//}
 
 	V[15] = pos->has_pawn_on_7th(Color::WHITE) - pos->has_pawn_on_7th(Color::BLACK);
+
+	// Is MATE!
+	V[16] = 0;
+	if (pos->is_mate()) {
+		if (side == WHITE) {
+			V[16] = -1;
+		}
+		else {
+			V[16] = 1;
+		}
+	}
 
 	/*
 	// Color white = 0. black = 1

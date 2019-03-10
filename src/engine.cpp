@@ -83,6 +83,7 @@ std::string Engine::playMove(const int positionsToAnalyze)
 int Engine::playGame(const int id, int movesToCheck, bool trainNN)
 {
 	auto pos = std::make_shared<Position>(StartPosition);
+
 	int one_side_moves = 0;
 	int result; // 1 white, -1 black, 0 draw
 	std::vector<Move> game;
@@ -97,7 +98,6 @@ int Engine::playGame(const int id, int movesToCheck, bool trainNN)
 		// Evaluate the subtree under this position using MCTS
 		// Evaluate n positions in this subtree
 
-		
 		int maxDepth = 0;
 		double avgDepth = 0;
 		for (int p = 0; p < movesToCheck; p++) {
@@ -128,6 +128,7 @@ int Engine::playGame(const int id, int movesToCheck, bool trainNN)
 		std::cout << C <<" played move with MCTS score " << book_[fen].averageEval << "\n";
 		std::cout << "Evaluation " << evaluatePosition(pos, trainNN) << "\n";
 
+		std::cout << "Press any key for the next move...\n";
 		getchar();
 	}
 
@@ -437,6 +438,8 @@ double Engine::evaluatePosition(const std::shared_ptr<Position> pos, bool NN)
 		net_.getResults(outputs);
 		return outputs[0];
 	}
-	return f.evalStatic();
+	else {
+		return f.evalStatic();
+	}
 }
 

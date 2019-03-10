@@ -9,7 +9,7 @@
 #include <map>
 #include "Chess/position.h"
 #include "Chess/bitboard.h"
-#include "Chess/direction.h"
+//#include "Chess/direction.h"
 #include "Chess/mersenne.h"
 #include "Chess/movepick.h"
 #include "Chess/san.h"

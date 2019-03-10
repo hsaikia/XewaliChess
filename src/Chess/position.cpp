@@ -1936,10 +1936,11 @@ bool Position::is_mate() {
 
 bool Position::is_draw() const {
   // Draw by material?
-  if(!this->pawns() &&
-     this->non_pawn_material(WHITE) + this->non_pawn_material(BLACK)
-     <= BishopValueMidgame)
-    return true;
+	if (!this->pawns() &&
+		this->non_pawn_material(WHITE) + this->non_pawn_material(BLACK)
+		<= BishopValueMidgame) {
+		return true;
+	}
 
   // Draw by the 50 moves rule?
   if(rule50 > 100 || (rule50 == 100 && !this->is_check()))

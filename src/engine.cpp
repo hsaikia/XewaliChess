@@ -105,6 +105,9 @@ int Engine::playGame(const int id, int movesToCheck, bool trainNN)
 
 		int maxDepth = 0;
 		double avgDepth = 0;
+
+		std::cout << "Searching....\n";
+
 		for (int p = 0; p < movesToCheck; p++) 
 		{
 			int depth;
@@ -332,16 +335,16 @@ Move Engine::pickNextMove(const std::shared_ptr<Position> pos, const std::map<st
 				score *= sqrt(2.0 * log(totPositionsSeenFromThisPos) / (mctsVisited[i].seen));
 			}
 
-			// converting [-1, 0, 1] of chess to [0, 1] win loss probability
+			// converting [-1, 0, 1] of chess to [0, 1] win loss probability for use in MCTS equation
 			auto avEval = whiteToMove ? (mctsVisited[i].averageEval + 1.0) / 2.0 : (mctsVisited[i].averageEval - 1.0) / 2.0;
 			
 			// score *= sqrt(2.0 * log(totPositionsSeenFromThisPos + 1) / (mctsVisited[i].seen + 1.0));
 			// score *= double(totPositionsSeenFromThisPos + 1.0)       / (mctsVisited[i].seen + 1.0);
 
-			// 0.5 to exploration
+			// 1.0 to exploration
 			// 1.0 to exploitation
 
-			moveScores[i].score = 2.0 * score + avEval;
+			moveScores[i].score = 1.0 * score + avEval;
 		}
 	}
 
@@ -361,8 +364,8 @@ Move Engine::pickNextMove(const std::shared_ptr<Position> pos, const std::map<st
 				<< " = Exploitation["
 				<< mctsVisited[moveScores[i].index].averageEval
 				<< "] + Exploration["
-				// << sqrt(2.0 * log(totPositionsSeenFromThisPos + 1) / (mctsVisited[moveScores[i].index].seen + 1))
-				<< double(totPositionsSeenFromThisPos + 1.0) / (mctsVisited[i].seen + 1.0)
+				 << sqrt(2.0 * log(totPositionsSeenFromThisPos) / (mctsVisited[moveScores[i].index].seen))
+				//<< double(totPositionsSeenFromThisPos + 1.0) / (mctsVisited[i].seen + 1.0)
 				<< "] Seen "
 				<< mctsVisited[moveScores[i].index].seen;
 			if (chosenMoveIdx == i) 
@@ -488,7 +491,7 @@ double Engine::evaluatePosition(const std::shared_ptr<Position> pos, bool NN)
 	else 
 	{
 		//return f.evalStatic();
-		return Features::evalStatic(pos);
+		return Features::evalStatic(pos, false);
 	}
 }
 

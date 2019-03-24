@@ -21,21 +21,10 @@ std::vector<double> Features::getFeatureVector() const
 	return V;
 }
 
-/* works like a markov chain
-* start with weights of w1 in every square for white pieces and b1 for black pieces
-* start simulating from side_to_move
-* for every legal move from a total of M attacks for a piece P, assign a weight of 1/M to all squares which P attacks
-* do the same for the next side to move
-* now normalize both weights to sum to 1
-* as long as there is a positive weight remaining, distribute again in the same way
-* some squares will become heavily influenced by 1 color after some time
-* total score for the position is the sum of all white influence - sum of all black influence
-* special treatment of kings - a king attack cannot be distributed to a square with `heavy' influence of the opposite side 
-*/
-
-double Features::evalStatic(const std::shared_ptr<Position> pos)
+double Features::evalStatic(const std::shared_ptr<Position> pos, bool debug)
 {
-	double score[2][64];
+	std::vector< std::vector<double> > influence(2, std::vector<double>(64, 0.0));
+	std::vector< std::vector<double> > material(2, std::vector<double>(64, 0.0));
 
 	auto side = pos->side_to_move();
 	
@@ -43,49 +32,144 @@ double Features::evalStatic(const std::shared_ptr<Position> pos)
 		return side == Color::WHITE ? -1 : 1;
 	}
 
+	/*
+	* MATERIAL
+	* Calculate attack reachability of every piece on an empty board
+
+	* Queen :	Corners and edges (8x8, 28) : 21 = 588
+				Corners and edges (6x6, 20) : 23 = 460
+				Corners and edges (4x4, 12) : 25 = 300
+				Corners and edges (2x2, 4)  : 27 = 108
+
+				WEIGHTED AVERAGE OF QUEEN : 22.75
+
+	* Rook :	All Squares on board (64) : 14
+
+				WEIGHTED AVERAGE OF ROOK : 14
+
+	* Bishop:	Corners and edges (8x8, 28) : 7 = 196
+				Corners and edges (6x6, 20) : 9 = 180
+				Corners and edges (4x4, 12) : 11 = 132
+				Corners and edges (2x2, 4)  : 13 = 52
+
+				WEIGHTED AVERAGE OF BISHOP : 8.75
+				
+	* Knight:	Corner Squares (4)								: 2 = 8
+				Edge squares adjacent to corner square (8)		: 3 = 24
+				Other Edge squares (16)							: 4 = 64
+				Corner Squares (6x6, 4)							: 4 = 16
+				Edge squares (6x6, 16)							: 6 = 96
+				Center Squares (4x4, 16)						: 8 = 128
+
+				WEIGHTED AVERAGE OF KNIGHT : 5.25
+
+	* Pawn :	Rank (2-7, not rook files, 36)  : 2 = 72
+				Rank (2-7,     rook files, 12)  : 1 attack squares = 12
+				8th rank (1, any file, 8)       : average of rook/queen/knight/bishop moves at given square
+												: Assuming this is a queen = 8 * 21 = 168
+
+				WEIGHTED AVERAGE OF PAWN : 3.9375
+
+	* King :    Corner (4)					: 3 = 12
+				Edges except corners (24)	: 5 = 120
+				All other squares (36)		: 8 = 288
+				(not considering castling as it's not an attack move)
+
+				WEIGHTED AVERAGE OF KING : 6.5625
+
+	*/
+
+	// calculate material
 	for (Square s = SQ_A1; s <= SQ_H8; s++) {
-		auto piece_color = pos->color_of_piece_on(s);
-		if (piece_color == Color::WHITE) {
-			score[0][s] = 1.0;
-			score[1][s] = 0.0;
-		}
-		else if (piece_color == Color::BLACK) {
-			score[0][s] = 0.0;
-			score[1][s] = 1.0;
-		}
-		else {
-			score[0][s] = 0.0;
-			score[1][s] = 0.0;
+		auto piece = pos->piece_on(s);
+		switch (piece) {
+		case Piece::WQ: material[0][s] = 22.75;		material[1][s] = 0.0; break;
+		case Piece::WR: material[0][s] = 14.0;		material[1][s] = 0.0; break;
+		case Piece::WB: material[0][s] = 8.75;		material[1][s] = 0.0; break;
+		case Piece::WN: material[0][s] = 5.25;		material[1][s] = 0.0; break;
+		case Piece::WP: material[0][s] = 3.9375;	material[1][s] = 0.0; break;
+		case Piece::WK: material[0][s] = 6.5625;	material[1][s] = 0.0; break;
+		case Piece::BQ: material[1][s] = 22.75;		material[0][s] = 0.0; break;
+		case Piece::BR: material[1][s] = 14.0;		material[0][s] = 0.0; break;
+		case Piece::BB: material[1][s] = 8.75;		material[0][s] = 0.0; break;
+		case Piece::BN: material[1][s] = 5.25;		material[0][s] = 0.0; break;
+		case Piece::BP: material[1][s] = 3.9375;	material[0][s] = 0.0; break;
+		case Piece::BK: material[1][s] = 6.5625;	material[0][s] = 0.0; break;
+		case Piece::NO_PIECE: material[0][s] = 0.0;	material[1][s] = 0.0; break;
+		default: break;
 		}
 	}
 
-	//Move mlist[256];
-	//auto num_legal_moves = pos->all_legal_moves(mlist);
-	//for (auto i = 0; i < num_legal_moves; i++) {
-	//}
+	double sum_material[2];
+
+	for (int i = 0; i < 2; i++) {
+		sum_material[i] = 0.0;
+		for (int j = 0; j < 64; j++) {
+			sum_material[i] += material[i][j];
+		}
+	}
+
+	/*
+	* INFLUENCE
+	* works like a markov chain
+	* start with weights of w1 in every square for white pieces and b1 for black pieces
+	* start simulating from side_to_move
+	* for every legal move from a total of M attacks for a piece P, assign a weight of 1/M to all squares which P attacks
+	* do the same for the next side to move
+	* now normalize both weights to sum to 1
+	* as long as there is a positive weight remaining, distribute again in the same way
+	* some squares will become heavily influenced by 1 color after some time
+	* total influence for the position is the sum of all white influence - sum of all black influence
+	* special treatment of kings - a king attack cannot be distributed to a square with `heavy' influence of the opposite side
+	*/
+
+	// calculate influence
+	for (Square s = SQ_A1; s <= SQ_H8; s++) {
+		auto piece = pos->piece_on(s);
+
+		switch (piece) {
+		case Piece::WQ:		influence[0][s] = 1.0;		influence[1][s] = 0.0; break;
+		case Piece::WR:		influence[0][s] = 1.0;		influence[1][s] = 0.0; break;
+		case Piece::WB:		influence[0][s] = 1.0;		influence[1][s] = 0.0; break;
+		case Piece::WN:		influence[0][s] = 1.0;		influence[1][s] = 0.0; break;
+		case Piece::WP:		influence[0][s] = 1.0;		influence[1][s] = 0.0; break;
+		case Piece::WK:		influence[0][s] = 1.0;		influence[1][s] = 0.0; break;
+		case Piece::BQ:		influence[1][s] = 1.0;		influence[0][s] = 0.0; break;
+		case Piece::BR:		influence[1][s] = 1.0;		influence[0][s] = 0.0; break;
+		case Piece::BB:		influence[1][s] = 1.0;		influence[0][s] = 0.0; break;
+		case Piece::BN:		influence[1][s] = 1.0;		influence[0][s] = 0.0; break;
+		case Piece::BP:		influence[1][s] = 1.0;		influence[0][s] = 0.0; break;
+		case Piece::BK:		influence[1][s] = 1.0;		influence[0][s] = 0.0; break;
+		case Piece::NO_PIECE: influence[0][s] = 0.0;	influence[1][s] = 0.0; break;
+		
+		default:break;
+		}
+	}
 
 	int to_move = side == Color::WHITE ? 0 : 1;
 
 	int rounds = 0;
 
-	double sum[2];
+	double sum_influence[2];
 
 	double prevSc = 0.0;
 
 	while (true) {
-		//printf("Round %d\n", rounds);
-		//if (rounds == 100) {
-		//	break;
-		//}
+		if (debug) {
+			printf("Round %d\n", rounds);
+		}
+		if (to_move == (side == Color::WHITE ? 0 : 1) && rounds > 100) {
+			break;
+		}
 		auto color = to_move == 0 ? Color::WHITE : Color::BLACK;
-		// Set scores for a list of attack squares
+		// Set influences for a list of attack squares
 		auto setScores = [&](Square sq, Bitboard attack_squares) {
 			auto num_attacks = count_1s(attack_squares);
 			//printf("%s\n", square_to_string(sq).c_str());
 			//printf("Num attacks %d\n", num_attacks);
 			while (attack_squares) {
 				auto sqa = pop_1st_bit(&attack_squares);
-				score[to_move][sqa] += (score[to_move][sq] / num_attacks);
+				influence[to_move][sqa] += (influence[to_move][sq] / num_attacks);
 			}
 		};
 
@@ -132,55 +216,69 @@ double Features::evalStatic(const std::shared_ptr<Position> pos)
 		auto sq_attacks_king = pos->king_attacks(sq);
 		setScores(sq, sq_attacks_king);
 	
-		// normalize scores
+		// normalize influences
 		
 		for (int j = 0; j < 64; j++) {
-			auto ws = score[0][j];
-			auto bs = score[1][j];
+			auto ws = influence[0][j];
+			auto bs = influence[1][j];
 
-			score[0][j] = ws / (ws + bs + 0.00001);
-			score[1][j] = bs / (ws + bs + 0.00001);
+			influence[0][j] = ws / (ws + bs + 0.00001);
+			influence[1][j] = bs / (ws + bs + 0.00001);
 		}
 		
-		//// print scores
-		//for (int i = 0; i < 2; i++) {
-		//	for (Square s = SQ_A1; s <= SQ_H8; s++) {
-		//		if (score[i][s] > 0.00001) {
-		//			printf("[%s %.2lf]", square_to_string(s).c_str(), score[i][s]);
-		//		}
-		//	}
-		//	printf("\n");
-		//}
+		if (debug) {
+			// print influences
+			for (int i = 0; i < 2; i++) {
+				
+				if (i == 0) { printf("\nWhite "); } else { printf("\nBlack "); }
+
+				for (Square s = SQ_A1; s <= SQ_H8; s++) {
+					if (influence[i][s] > 0.00001) {
+						printf("[%s %.2lf]", square_to_string(s).c_str(), influence[i][s]);
+					}
+				}
+			}
+		}
 
 		to_move = 1 - to_move;
 		if (to_move == (side == Color::WHITE ? 0 : 1)) {
 			rounds++;
 			for (int i = 0; i < 2; i++) {
-				sum[i] = 0;
+				sum_influence[i] = 0;
 				for (int j = 0; j < 64; j++) {
-					sum[i] += score[i][j];
+					sum_influence[i] += influence[i][j];
 				}
 			}
 
-			auto Sc = sum[0] - sum[1];
+			auto Sc = sum_influence[0] - sum_influence[1];
 			if (std::fabs(Sc - prevSc) < 0.001) {
 				break;
 			}
 
 			prevSc = Sc;
-			//printf("Score %lf\n", prevSc);
+			if (debug) {
+				printf("\nScore %lf\n", prevSc);
+			}
 		}
-		//getchar();
+		if (debug) {
+			printf("\nPress Enter to continue...");
+			getchar();
+		}
 	}
 
-	//for (int i = 0; i < 2; i++) {
-	//	sum[i] = 0;
-	//	for (int j = 0; j < 64; j++) {
-	//		sum[i] += score[i][j];
-	//	}
-	//}
+	const double lambda = 0.5;
+	auto net_eval = (lambda * (sum_influence[0] - sum_influence[1])  +  (1 - lambda) * (sum_material[0] - sum_material[1]) ) / 64;
 
-	return (sum[0] - sum[1]) / 64;
+	//always return between [1, 1]
+	if (net_eval < -1) {
+		return -1;
+	}
+	else if (net_eval > 1) {
+		return 1;
+	}
+	
+	return net_eval;
+	
 }
 
 double Features::evalStatic() const

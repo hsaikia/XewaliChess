@@ -10,7 +10,7 @@
 #include <iostream>
 //using namespace Chess;
 
-const int positionsToEvaluatePerMove = 40000;
+const int positionsToEvaluatePerMove = 80000;
 
 int test_main() {
 	//Train N games
@@ -19,23 +19,35 @@ int test_main() {
 	Engine t;
 	t.init();
 
-	//t.net_.readNNFromFile("Output/NN.network");
-	//t.readBook("Output/Positions.book");
+	////t.net_.readNNFromFile("Output/NN.network");
+	////t.readBook("Output/Positions.book");
 
 	for (int i = 0; i < games; i++) {
 		int res = t.playGame(i + 1, positionsToEvaluatePerMove, false);
 	}
 
-	////testing features
+	//testing features
 	//std::string fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2"; // 1. e4 e5 2. Nf3
 	//std::string fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/7N/PPPP1PPP/RNBQKB1R b KQkq - 1 2";  // 1. e4 e5 2. Nh3
 
-	std::string fen = "7r/p3k3/2Q2p2/1p2b3/4P3/8/PPP2PBP/1K1R3R b - -2 25";
-	
-	auto position = std::make_shared<Position>(fen);
-	auto eval = Features::evalStatic(position);
+	//std::string fen = "7r/p3k3/2Q2p2/1p2b3/4P3/8/PPP2PBP/1K1R3R b - -2 25";
 
-	printf("Score %.2lf\n", eval);
+	//std::string fen1 = "rnbqkb1r/ppppp1P1/5n2/7p/8/8/PPPP1PPP/RNBQKBNR w KQkq - 1 5"; // white pawn on 7th rank
+
+	//printf("testing promotions\n");
+	//auto pos = std::make_shared<Position>(fen1);
+	//Move mlist[256];
+	//auto num_legal_moves = pos->all_legal_moves(mlist);
+
+	//printf("Num legal moves %d\n", num_legal_moves);
+	//for (int i = 0; i < num_legal_moves; i++) {
+	//	printf("%s\n", move_to_string(mlist[i]).c_str());
+	//}
+	
+	//auto position = std::make_shared<Position>(fen);
+	//auto eval = Features::evalStatic(position, true);
+
+	//printf("\nFinal Score %.2lf\n", eval);
 
 	// f.setFeaturesFromPos(position);
 	// f.printFeatureVector();
@@ -118,7 +130,7 @@ int ucimain() {
 }
 
 int main() {
-	//ucimain();
-	test_main();
+	ucimain();
+	//test_main();
 	return 0;
 }

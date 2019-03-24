@@ -24,7 +24,7 @@ class Features {
 public:
 	Features();
 	std::vector<double> getFeatureVector() const;
-	static double evalStatic(const std::shared_ptr<Position> pos);
+	static double evalStatic(const std::shared_ptr<Position> pos, bool debug);
 	double evalStatic() const;
 	void setFeaturesFromPos(const std::shared_ptr<Position> pos);
 	void printFeatureVector() const;

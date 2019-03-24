@@ -10,30 +10,36 @@
 #include <iostream>
 //using namespace Chess;
 
+const int positionsToEvaluatePerMove = 40000;
+
 int test_main() {
 	//Train N games
 	int games = 1;
-	int movesToCheck = 30000;
 
 	Engine t;
 	t.init();
+
 	//t.net_.readNNFromFile("Output/NN.network");
 	//t.readBook("Output/Positions.book");
 
 	for (int i = 0; i < games; i++) {
-		int res = t.playGame(i + 1, movesToCheck, false);
+		int res = t.playGame(i + 1, positionsToEvaluatePerMove, false);
 	}
 
 	////testing features
+	//std::string fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2"; // 1. e4 e5 2. Nf3
+	//std::string fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/7N/PPPP1PPP/RNBQKB1R b KQkq - 1 2";  // 1. e4 e5 2. Nh3
 
-	//std::string fen = "rnbqkbnr/pppp1pp1/8/4p2p/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq -";
+	std::string fen = "7r/p3k3/2Q2p2/1p2b3/4P3/8/PPP2PBP/1K1R3R b - -2 25";
+	
+	auto position = std::make_shared<Position>(fen);
+	auto eval = Features::evalStatic(position);
 
-	//Features f;
-	//auto position = std::make_shared<Position>(fen);
-	//f.setFeaturesFromPos(position);
-	//
-	//f.printFeatureVector();
+	printf("Score %.2lf\n", eval);
 
+	// f.setFeaturesFromPos(position);
+	// f.printFeatureVector();
+	
 	getchar();
 	return 0;
 }
@@ -99,7 +105,7 @@ int ucimain() {
 		}
 		else if (tokens[0] == "go") {
 			std::cout << "info Thinking..." << std::endl;
-			std::cout << "bestmove " << e.playMove(40000) << std::endl;
+			std::cout << "bestmove " << e.playMove(positionsToEvaluatePerMove) << std::endl;
 		}
 		else if (tokens[0] == "quit"){
 			break;
@@ -112,7 +118,7 @@ int ucimain() {
 }
 
 int main() {
-	ucimain();
-	//test_main();
+	//ucimain();
+	test_main();
 	return 0;
 }

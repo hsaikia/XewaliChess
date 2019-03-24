@@ -24,14 +24,13 @@ class Features {
 public:
 	Features();
 	std::vector<double> getFeatureVector() const;
+	static double evalStatic(const std::shared_ptr<Position> pos);
 	double evalStatic() const;
 	void setFeaturesFromPos(const std::shared_ptr<Position> pos);
 	void printFeatureVector() const;
 	static size_t getNumFeatures();
 
 private:
-	void setFeaturesFromPos1(const std::shared_ptr<Position> pos);
-	void setFeaturesFromPos2(const std::shared_ptr<Position> pos);
 	static const size_t numFeatures_ = 17;
 	std::vector<double> V;
 };

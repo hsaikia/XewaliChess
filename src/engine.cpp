@@ -45,7 +45,8 @@ void Engine::setPosition(const std::string & fen, const std::vector<std::string>
 	isReady_ = false;
 	pos_ = std::make_shared<Position>(fen);
 	
-	for (auto& move : moves) {
+	for (auto& move : moves) 
+	{
 		UndoInfo u;
 		Position posTemp = *pos_;
 		pos_->do_move(move_from_string(posTemp, move), u);
@@ -58,14 +59,16 @@ std::string Engine::playMove(const int positionsToAnalyze)
 	isReady_ = false;
 	int result;
 
-	if (Engine::checkTermination(pos_, result, false)) {
+	if (Engine::checkTermination(pos_, result, false)) 
+	{
 		isReady_ = true;
 		return "";
 	}
 
 	int maxDepth = 0;
 	double avgDepth = 0;
-	for (int p = 0; p < positionsToAnalyze; p++) {
+	for (int p = 0; p < positionsToAnalyze; p++) 
+	{
 		int depth;
 		searchSubtree(pos_, book_, depth, false);
 		maxDepth = max(depth, maxDepth);
@@ -87,11 +90,13 @@ int Engine::playGame(const int id, int movesToCheck, bool trainNN)
 	int one_side_moves = 0;
 	int result; // 1 white, -1 black, 0 draw
 	std::vector<Move> game;
-	//std::map<std::string, Record> book;
+	// std::map<std::string, Record> book;
 
-	while (true) { // game continues
+	while (true) 
+	{ // game continues
 
-		if (Engine::checkTermination(pos, result, one_side_moves >= 2 * trainingGameMovesLimit)) {
+		if (Engine::checkTermination(pos, result, one_side_moves >= 2 * trainingGameMovesLimit)) 
+		{
 			break;
 		}
 
@@ -100,7 +105,8 @@ int Engine::playGame(const int id, int movesToCheck, bool trainNN)
 
 		int maxDepth = 0;
 		double avgDepth = 0;
-		for (int p = 0; p < movesToCheck; p++) {
+		for (int p = 0; p < movesToCheck; p++) 
+		{
 			int depth;
 			searchSubtree(pos, book_, depth, trainNN);
 			maxDepth = max(depth, maxDepth);
@@ -113,11 +119,13 @@ int Engine::playGame(const int id, int movesToCheck, bool trainNN)
 
 		// Now pick the next move
 		// Ignore exploration and pick the best average MCTS value move
-		//Move m = pickNextMove(pos, book_, true, false); // no debug info printed
+		// Move m = pickNextMove(pos, book_, true, false); 
+		// no debug info printed
+
 		Move m = pickNextMove(pos, book_, true, true); // with debug info printed
 		std::string C = pos->side_to_move() == Color::WHITE ? "White" : "Black";
 
-		//play a move
+		// Play a move
 		UndoInfo u;
 		game.push_back(m);
 		pos->do_move(m, u);
@@ -125,24 +133,27 @@ int Engine::playGame(const int id, int movesToCheck, bool trainNN)
 
 		auto fen = pos->to_fen();
 
-		std::cout << C <<" played move with MCTS score " << book_[fen].averageEval << "\n";
+		std::cout << C << " played move with MCTS score " << book_[fen].averageEval << "\n";
 		std::cout << "Evaluation " << evaluatePosition(pos, trainNN) << "\n";
 
 		std::cout << "Press any key for the next move...\n";
 		getchar();
 	}
 
-	//train on the game if result is a win or loss
-	if (result != 0 && trainNN) {
+	// Train on the game if result is a win or loss
+	if (result != 0 && trainNN) 
+	{
 		trainGame(game, result);
 	}
 
 	std::stringstream ss;
 	std::string resStr = "_draw_";
-	if (result == 1) {
+	if (result == 1) 
+	{
 		resStr = "_white_";
 	}
-	else if (result == -1) {
+	else if (result == -1) 
+	{
 		resStr = "_black_";
 	}
 
@@ -169,17 +180,21 @@ int Engine::playGame(const int id, int movesToCheck, bool trainNN)
 	return result;
 }
 
-void Engine::searchSubtree(const std::shared_ptr<Position> pos, std::map<std::string, Record>& book, int& depth, bool NN)
-{
+void Engine::searchSubtree(const std::shared_ptr<Position> pos, std::map<std::string, Record>& book, int& depth, bool NN){
+
 	std::shared_ptr<Position> leaf = std::make_shared<Position>(*pos);
 	std::vector<Move> moves;
 	int result = 0;
 	bool reachedTerminalPosition = false;
-	//traverse until leaf is found
+
+	// Traverse until leaf is found
 	depth = 0;
-	while (true) {
+	
+	while (true) 
+	{
 		reachedTerminalPosition = Engine::checkTermination(leaf, result, depth >= 2 * trainingGameMovesLimit);
 		auto fen = leaf->to_fen();
+
 		if (book.find(fen) == book.end()) { // never seen this position before!
 			break;
 		}
@@ -212,11 +227,11 @@ void Engine::searchSubtree(const std::shared_ptr<Position> pos, std::map<std::st
 
 	// Update the evaluations of all nodes prior to this leaf
 	std::shared_ptr<Position> tmp = std::make_shared<Position>(*pos);
+
 	for (int i = 0; i < moves.size(); i++) {
 		auto fen = tmp->to_fen();
 		book[fen].averageEval = (book[fen].averageEval * book[fen].seen + val) / (book[fen].seen + 1);
 		book[fen].seen++;
-
 		UndoInfo u;
 		tmp->do_move(moves[i], u);
 	}
@@ -250,6 +265,7 @@ void Engine::trainGame(const std::vector<Move>& game, int result)
 
 // pick the immediate next move according to current mcts evaluation
 // if a next move results in immediate mate, return that move at all costs
+
 Move Engine::pickNextMove(const std::shared_ptr<Position> pos, const std::map<std::string, Record>& book, bool ignoreExploration, bool printDebug)
 {
 	Move mlist[256];
@@ -259,7 +275,8 @@ Move Engine::pickNextMove(const std::shared_ptr<Position> pos, const std::map<st
 
 	auto num_legal_moves = pos->all_legal_moves(mlist);
 
-	if (num_legal_moves == 0) {
+	if (num_legal_moves == 0) 
+	{
 		std::cout << "Error! No move possible from position!\n";
 		return MOVE_NONE;
 	}
@@ -268,19 +285,22 @@ Move Engine::pickNextMove(const std::shared_ptr<Position> pos, const std::map<st
 	std::vector<Record> mctsVisited(num_legal_moves, Record());
 
 	// find total moves seen from this position
-	for (int i = 0; i < num_legal_moves; i++) {
+	for (int i = 0; i < num_legal_moves; i++) 
+	{
 		UndoInfo u;
 		std::unique_ptr<Position> posTemp = std::make_unique<Position>(*pos);
 		posTemp->reset_game_ply();
 		posTemp->do_move(mlist[i], u);
 
 		//found mate
-		if (posTemp->is_mate()) {
+		if (posTemp->is_mate()) 
+		{
 			return mlist[i];
 		}
 
 		auto posFEN = posTemp->to_fen();
-		if (book.find(posFEN) != book.end()) { // seen this position before
+		if (book.find(posFEN) != book.end()) 
+		{ // seen this position before
 			auto entry = book.find(posFEN)->second;
 			totPositionsSeenFromThisPos += entry.seen;
 			mctsVisited[i] = entry;
@@ -289,18 +309,21 @@ Move Engine::pickNextMove(const std::shared_ptr<Position> pos, const std::map<st
 	
 	std::vector<MoveScore> moveScores(num_legal_moves);
 	
-	for (int i = 0; i < num_legal_moves; i++) {
+	for (int i = 0; i < num_legal_moves; i++) 
+	{
 		moveScores[i].move = mlist[i];
 		moveScores[i].index = i;
 		
-		if (ignoreExploration) {
+		if (ignoreExploration) 
+		{
 			moveScores[i].score = mctsVisited[i].averageEval;
 		}
-		else {
+		else 
+		{
 			// if black to move, make probabilities negative
 			double score = whiteToMove ? 1 : -1;
 
-			//eval till now + mcts low visit prob
+			// eval till now + mcts low visit prob
 
 			if (mctsVisited[i].seen == 0) {
 				score *= 1000;
@@ -309,19 +332,28 @@ Move Engine::pickNextMove(const std::shared_ptr<Position> pos, const std::map<st
 				score *= sqrt(2.0 * log(totPositionsSeenFromThisPos) / (mctsVisited[i].seen));
 			}
 
-			// 0.5 to exploration
-			// 1 to exploitation
+			// converting [-1, 0, 1] of chess to [0, 1] win loss probability
+			auto avEval = whiteToMove ? (mctsVisited[i].averageEval + 1.0) / 2.0 : (mctsVisited[i].averageEval - 1.0) / 2.0;
+			
+			// score *= sqrt(2.0 * log(totPositionsSeenFromThisPos + 1) / (mctsVisited[i].seen + 1.0));
+			// score *= double(totPositionsSeenFromThisPos + 1.0)       / (mctsVisited[i].seen + 1.0);
 
-			moveScores[i].score = 0.25 * score + mctsVisited[i].averageEval;
+			// 0.5 to exploration
+			// 1.0 to exploitation
+
+			moveScores[i].score = 2.0 * score + avEval;
 		}
 	}
 
-	//sort the moves according to their score
+	// sort the moves according to their score
 	sort(moveScores.begin(), moveScores.end(), MoveScore::compare);
 
-	if (printDebug) {
+	if (printDebug) 
+	{
 		int chosenMoveIdx = whiteToMove ? 0 : num_legal_moves - 1;
-		for (int i = 0; i < num_legal_moves; i++) {
+
+		for (int i = 0; i < num_legal_moves; i++) 
+		{
 			std::cout << "[" << square_to_string(move_from(moveScores[i].move))
 				<< square_to_string(move_to(moveScores[i].move))
 				<< "] Total Score "
@@ -329,13 +361,16 @@ Move Engine::pickNextMove(const std::shared_ptr<Position> pos, const std::map<st
 				<< " = Exploitation["
 				<< mctsVisited[moveScores[i].index].averageEval
 				<< "] + Exploration["
-				<< sqrt(2.0 * log(totPositionsSeenFromThisPos + 1) / (mctsVisited[moveScores[i].index].seen + 1))
+				// << sqrt(2.0 * log(totPositionsSeenFromThisPos + 1) / (mctsVisited[moveScores[i].index].seen + 1))
+				<< double(totPositionsSeenFromThisPos + 1.0) / (mctsVisited[i].seen + 1.0)
 				<< "] Seen "
 				<< mctsVisited[moveScores[i].index].seen;
-			if (chosenMoveIdx == i) {
+			if (chosenMoveIdx == i) 
+			{
 				std::cout << " [Chosen Move]\n";
 			}
-			else {
+			else 
+			{
 				std::cout << "\n";
 			}
 		}
@@ -351,35 +386,43 @@ void Engine::writeToPgn(const std::vector<Move>& game, const int result, const s
 	file.open(filename);
 
 	auto position = std::make_shared<Position>(StartPosition);
-	for (size_t i = 0; i < game.size(); i++) {
+	for (size_t i = 0; i < game.size(); i++) 
+	{
 		auto pieceType = position->type_of_piece_on(move_from(game[i]));
 		auto pieceString = piece_type_to_char(pieceType, true);
 
-		if (pieceString == 'P') {
+		if (pieceString == 'P') 
+		{
 			pieceString = ' ';
 		}
 
-		if (i % 2 == 0) {
+		if (i % 2 == 0) 
+		{
 			file << (i / 2) + 1 << "." << pieceString << move_to_string(game[i]);
 		}
-		else {
+		else 
+		{
 			file << " " << pieceString << move_to_string(game[i]) << " ";
 		}
 		UndoInfo u;
 		position->do_move(game[i], u);
 	}
 
-	if (position->is_mate()) {
+	if (position->is_mate()) 
+	{
 		file << "#";
 	}
 
-	if (result == 1) {
+	if (result == 1) 
+	{
 		file << " 1-0";
 	}
-	else if (result == -1) {
+	else if (result == -1) 
+	{
 		file << " 0-1";
 	}
-	else {
+	else 
+	{
 		file << " 0.5-0.5";
 	}
 
@@ -391,7 +434,8 @@ void Engine::writeBook(const std::string & filename) const
 	std::ofstream file;
 	file.open(filename);
 
-	for (auto& entry : book_) {
+	for (auto& entry : book_) 
+	{
 		file << entry.second.averageEval << " " << entry.second.seen << " " << entry.first << "\n";
 	}
 
@@ -403,12 +447,14 @@ bool Engine::checkTermination(const std::shared_ptr<Position> pos, int & result,
 	bool whiteToMove = (pos->side_to_move() == Color::WHITE);
 
 	// 50 moves / threefold repetition / insufficient material to mate -> draw
-	if (pos->is_draw() || drawCondition) {
+	if (pos->is_draw() || drawCondition) 
+	{
 		result = 0;
 		return true;
 	}
 
-	if (pos->is_mate()) {
+	if (pos->is_mate()) 
+	{
 		result = whiteToMove ? -1 : 1;
 		return true;
 	}
@@ -416,7 +462,8 @@ bool Engine::checkTermination(const std::shared_ptr<Position> pos, int & result,
 	Move mlist[256];
 	auto num_legal_moves = pos->all_legal_moves(mlist);
 
-	if (num_legal_moves == 0) {
+	if (num_legal_moves == 0) 
+	{
 		// Stalemate
 		result = 0;
 		return true;
@@ -429,17 +476,19 @@ double Engine::evaluatePosition(const std::shared_ptr<Position> pos, bool NN)
 {
 	//auto fen = pos->to_fen(); // for debugging only
 
-	Features f;
-	f.setFeaturesFromPos(pos);
-
-	if (NN) {
+	if (NN) 
+	{
+		Features f;
+		f.setFeaturesFromPos(pos);
 		net_.feedForward(f.getFeatureVector());
 		std::vector<double> outputs;
 		net_.getResults(outputs);
 		return outputs[0];
 	}
-	else {
-		return f.evalStatic();
+	else 
+	{
+		//return f.evalStatic();
+		return Features::evalStatic(pos);
 	}
 }
 

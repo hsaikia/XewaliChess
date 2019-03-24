@@ -25,7 +25,7 @@ struct MoveScore {
 
 	MoveScore() {
 		move = MOVE_NONE;
-		score = 1;
+		score = 0.0;
 	}
 
 	static bool compare(MoveScore ms1, MoveScore ms2) {

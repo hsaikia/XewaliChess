@@ -21,6 +21,168 @@ std::vector<double> Features::getFeatureVector() const
 	return V;
 }
 
+/* works like a markov chain
+* start with weights of w1 in every square for white pieces and b1 for black pieces
+* start simulating from side_to_move
+* for every legal move from a total of M attacks for a piece P, assign a weight of 1/M to all squares which P attacks
+* do the same for the next side to move
+* now normalize both weights to sum to 1
+* as long as there is a positive weight remaining, distribute again in the same way
+* some squares will become heavily influenced by 1 color after some time
+* total score for the position is the sum of all white influence - sum of all black influence
+* special treatment of kings - a king attack cannot be distributed to a square with `heavy' influence of the opposite side 
+*/
+
+double Features::evalStatic(const std::shared_ptr<Position> pos)
+{
+	double score[2][64];
+
+	auto side = pos->side_to_move();
+	
+	if (pos->is_mate()) {
+		return side == Color::WHITE ? -1 : 1;
+	}
+
+	for (Square s = SQ_A1; s <= SQ_H8; s++) {
+		auto piece_color = pos->color_of_piece_on(s);
+		if (piece_color == Color::WHITE) {
+			score[0][s] = 1.0;
+			score[1][s] = 0.0;
+		}
+		else if (piece_color == Color::BLACK) {
+			score[0][s] = 0.0;
+			score[1][s] = 1.0;
+		}
+		else {
+			score[0][s] = 0.0;
+			score[1][s] = 0.0;
+		}
+	}
+
+	//Move mlist[256];
+	//auto num_legal_moves = pos->all_legal_moves(mlist);
+	//for (auto i = 0; i < num_legal_moves; i++) {
+	//}
+
+	int to_move = side == Color::WHITE ? 0 : 1;
+
+	int rounds = 0;
+
+	double sum[2];
+
+	double prevSc = 0.0;
+
+	while (true) {
+		//printf("Round %d\n", rounds);
+		//if (rounds == 100) {
+		//	break;
+		//}
+		auto color = to_move == 0 ? Color::WHITE : Color::BLACK;
+		// Set scores for a list of attack squares
+		auto setScores = [&](Square sq, Bitboard attack_squares) {
+			auto num_attacks = count_1s(attack_squares);
+			//printf("%s\n", square_to_string(sq).c_str());
+			//printf("Num attacks %d\n", num_attacks);
+			while (attack_squares) {
+				auto sqa = pop_1st_bit(&attack_squares);
+				score[to_move][sqa] += (score[to_move][sq] / num_attacks);
+			}
+		};
+
+		// Queen
+		for (int i = 0; i < pos->queen_count(color); i++) {
+			auto sq = pos->queen_list(color, i);
+			auto sq_attacks_queen = pos->queen_attacks(sq);
+			//printf("%lld\n", sq_attacks_queen);
+			//auto num_attacks = count_1s(sq_attacks_queen);
+			//printf("%d\n", num_attacks);
+			setScores(sq, sq_attacks_queen);
+		}
+
+		// Rook
+		for (int i = 0; i < pos->rook_count(color); i++) {
+			auto sq = pos->rook_list(color, i);
+			auto sq_attacks_rook = pos->rook_attacks(sq);
+			setScores(sq, sq_attacks_rook);
+		}
+
+		// Bishop
+		for (int i = 0; i < pos->bishop_count(color); i++) {
+			auto sq = pos->bishop_list(color, i);
+			auto sq_attacks_bishop = pos->bishop_attacks(sq);
+			setScores(sq, sq_attacks_bishop);
+		}
+
+		// Knight
+		for (int i = 0; i < pos->knight_count(color); i++) {
+			auto sq = pos->knight_list(color, i);
+			auto sq_attacks_knight = pos->knight_attacks(sq);
+			setScores(sq, sq_attacks_knight);
+		}
+
+		// Pawn
+		for (int i = 0; i < pos->pawn_count(color); i++) {
+			auto sq = pos->pawn_list(color, i);
+			auto sq_attacks_pawn = color == Color::WHITE ? pos->white_pawn_attacks(sq) : pos->black_pawn_attacks(sq);
+			setScores(sq, sq_attacks_pawn);
+		}
+
+		// King
+		auto sq = pos->king_square(color);
+		auto sq_attacks_king = pos->king_attacks(sq);
+		setScores(sq, sq_attacks_king);
+	
+		// normalize scores
+		
+		for (int j = 0; j < 64; j++) {
+			auto ws = score[0][j];
+			auto bs = score[1][j];
+
+			score[0][j] = ws / (ws + bs + 0.00001);
+			score[1][j] = bs / (ws + bs + 0.00001);
+		}
+		
+		//// print scores
+		//for (int i = 0; i < 2; i++) {
+		//	for (Square s = SQ_A1; s <= SQ_H8; s++) {
+		//		if (score[i][s] > 0.00001) {
+		//			printf("[%s %.2lf]", square_to_string(s).c_str(), score[i][s]);
+		//		}
+		//	}
+		//	printf("\n");
+		//}
+
+		to_move = 1 - to_move;
+		if (to_move == (side == Color::WHITE ? 0 : 1)) {
+			rounds++;
+			for (int i = 0; i < 2; i++) {
+				sum[i] = 0;
+				for (int j = 0; j < 64; j++) {
+					sum[i] += score[i][j];
+				}
+			}
+
+			auto Sc = sum[0] - sum[1];
+			if (std::fabs(Sc - prevSc) < 0.001) {
+				break;
+			}
+
+			prevSc = Sc;
+			//printf("Score %lf\n", prevSc);
+		}
+		//getchar();
+	}
+
+	//for (int i = 0; i < 2; i++) {
+	//	sum[i] = 0;
+	//	for (int j = 0; j < 64; j++) {
+	//		sum[i] += score[i][j];
+	//	}
+	//}
+
+	return (sum[0] - sum[1]) / 64;
+}
+
 double Features::evalStatic() const
 {
 	double ret = 
@@ -36,11 +198,6 @@ double Features::evalStatic() const
 	}
 
 	return ret / 300.0;
-}
-
-void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos)
-{
-	setFeaturesFromPos2(pos);
 }
 
 /*
@@ -87,33 +244,7 @@ void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos) {
 }
 */
 
-
-
-// using only square infleunce
-void Features::setFeaturesFromPos1(const std::shared_ptr<Position> pos) {
-	
-	auto side = pos->side_to_move();
-	V.clear();
-	V.resize(numFeatures_);
-	
-	//V[0] = side == Color::WHITE ? 1 : -1;
-
-	//pos->piece_attacks_square
-
-	for (Square s = SQ_A1; s <= SQ_H8; s++) {
-		for (int i = 0; i < pos->queen_count(side); i++) {
-			auto sq = pos->queen_list(side, i);
-			if (side == WHITE) {
-				V[0] += pos->queen_attacks_square(sq, s);
-			}
-			else {
-				V[0] -= pos->queen_attacks_square(sq, s);
-			}
-		}
-	}
-}
-
-void Features::setFeaturesFromPos2(const std::shared_ptr<Position> pos)
+void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos)
 {
 	auto side = pos->side_to_move();
 
@@ -197,12 +328,11 @@ void Features::setFeaturesFromPos2(const std::shared_ptr<Position> pos)
 	//for (int i = 1; i < 7; i++) {
 	//	V[i] /= 28;
 	//}
-
-	// TODO - make these king safety parameters
-	// can castle does not work because after castling it favors the opposite side, so it actually prevents castling
+	// TODO : make these king safety parameters
+	// TODO : can castle does not work because after castling it favors the opposite side, so it actually prevents castling
 	
-	V[7] = 0; // int(pos->can_castle_kingside(Color::WHITE)) - int(pos->can_castle_kingside(Color::BLACK));
-	V[8] = 0; //  int(pos->can_castle_queenside(Color::WHITE)) - int(pos->can_castle_queenside(Color::BLACK));
+	V[7] = 0; // int(pos->can_castle_kingside (Color::WHITE))  - int(pos->can_castle_kingside(Color::BLACK));
+	V[8] = 0; // int(pos->can_castle_queenside(Color::WHITE)) - int(pos->can_castle_queenside(Color::BLACK));
 	V[9] = pos->is_check() ? -V[0] : 0;
 
 	// piece counts

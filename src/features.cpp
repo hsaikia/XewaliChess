@@ -68,7 +68,8 @@ double Features::evalStatic(const std::shared_ptr<Position> pos, bool debug)
 				8th rank (1, any file, 8)       : average of rook/queen/knight/bishop moves at given square
 												: Assuming this is a queen = 8 * 21 = 168
 
-				WEIGHTED AVERAGE OF PAWN : 3.9375
+				WEIGHTED AVERAGE OF PAWN : 3.9375 (considering queen promotion)
+				WEIGHTED AVERAGE OF PAWN : 1.3125 (not considering queen promotion)
 
 	* King :    Corner (4)					: 3 = 12
 				Edges except corners (24)	: 5 = 120
@@ -87,13 +88,13 @@ double Features::evalStatic(const std::shared_ptr<Position> pos, bool debug)
 		case Piece::WR: material[0][s] = 14.0;		material[1][s] = 0.0; break;
 		case Piece::WB: material[0][s] = 8.75;		material[1][s] = 0.0; break;
 		case Piece::WN: material[0][s] = 5.25;		material[1][s] = 0.0; break;
-		case Piece::WP: material[0][s] = 3.9375;	material[1][s] = 0.0; break;
+		case Piece::WP: material[0][s] = 1.3125;	material[1][s] = 0.0; break;
 		case Piece::WK: material[0][s] = 6.5625;	material[1][s] = 0.0; break;
 		case Piece::BQ: material[1][s] = 22.75;		material[0][s] = 0.0; break;
 		case Piece::BR: material[1][s] = 14.0;		material[0][s] = 0.0; break;
 		case Piece::BB: material[1][s] = 8.75;		material[0][s] = 0.0; break;
 		case Piece::BN: material[1][s] = 5.25;		material[0][s] = 0.0; break;
-		case Piece::BP: material[1][s] = 3.9375;	material[0][s] = 0.0; break;
+		case Piece::BP: material[1][s] = 1.3125;	material[0][s] = 0.0; break;
 		case Piece::BK: material[1][s] = 6.5625;	material[0][s] = 0.0; break;
 		case Piece::NO_PIECE: material[0][s] = 0.0;	material[1][s] = 0.0; break;
 		default: break;
@@ -266,7 +267,7 @@ double Features::evalStatic(const std::shared_ptr<Position> pos, bool debug)
 		}
 	}
 
-	const double lambda = 0.5;
+	const double lambda = 0.1;
 	auto net_eval = (lambda * (sum_influence[0] - sum_influence[1])  +  (1 - lambda) * (sum_material[0] - sum_material[1]) ) / 64;
 
 	//always return between [1, 1]

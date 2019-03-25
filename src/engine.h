@@ -50,7 +50,7 @@ public:
 	bool isReady() const;
 	void setPosition(const std::string & fen, const std::vector<std::string>& moves);
 	int playGame(const int id, int movesToCheck, bool trainNN);
-	std::string playMove(const int positionsToAnalyze);
+	std::string playMove(const int positionsToAnalyze, bool debug);
 	static void writeToPgn(const std::vector<Move>& game, const int result, const std::string& filename);
 	//void playFromPos(const std::shared_ptr<Position> pos);
 	
@@ -61,6 +61,7 @@ public:
 
 	//
 	NeuralNetwork net_;
+	double evalCurrentPosition() const;
 	
 private:
 	void trainGame(const std::vector<Move>& game, int result);

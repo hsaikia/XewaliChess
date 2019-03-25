@@ -54,7 +54,7 @@ void Engine::setPosition(const std::string & fen, const std::vector<std::string>
 	isReady_ = true;
 }
 
-std::string Engine::playMove(const int positionsToAnalyze)
+std::string Engine::playMove(const int positionsToAnalyze, bool debug)
 {
 	isReady_ = false;
 	int result;
@@ -78,8 +78,13 @@ std::string Engine::playMove(const int positionsToAnalyze)
 	std::cout << "Max Depth searched " << maxDepth << "\n";
 	std::cout << "Average Depth " << avgDepth << "\n";
 
-	Move m = pickNextMove(pos_, book_, true, false); // with debug info printed
+	Move m = pickNextMove(pos_, book_, true, debug); // with debug info printed
 	isReady_ = true;
+
+	// make the move on the current position
+	UndoInfo u;
+	pos_->do_move(m, u);
+
 	return move_to_string(m);
 }
 
@@ -215,7 +220,7 @@ void Engine::searchSubtree(const std::shared_ptr<Position> pos, std::map<std::st
 	}
 
 	// Now we encountered a leaf which has not been seen or evaluated before
-	// Evaluate it using the NN
+	// Evaluate it
 	double val = evaluatePosition(leaf, NN);
 
 	// If the leaf ends up in a win, loss or draw, set the value accordingly
@@ -253,6 +258,11 @@ void Engine::backProp(const std::shared_ptr<Position> pos, int result)
 	res.push_back(result);
 
 	net_.backProp(res);
+}
+
+double Engine::evalCurrentPosition() const
+{
+	return Features::evalStatic(pos_, false);
 }
 
 void Engine::trainGame(const std::vector<Move>& game, int result)
@@ -329,7 +339,7 @@ Move Engine::pickNextMove(const std::shared_ptr<Position> pos, const std::map<st
 			// eval till now + mcts low visit prob
 
 			if (mctsVisited[i].seen == 0) {
-				score *= 1000;
+				score *= 10;
 			}
 			else {
 				score *= sqrt(2.0 * log(totPositionsSeenFromThisPos) / (mctsVisited[i].seen));
@@ -341,10 +351,10 @@ Move Engine::pickNextMove(const std::shared_ptr<Position> pos, const std::map<st
 			// score *= sqrt(2.0 * log(totPositionsSeenFromThisPos + 1) / (mctsVisited[i].seen + 1.0));
 			// score *= double(totPositionsSeenFromThisPos + 1.0)       / (mctsVisited[i].seen + 1.0);
 
-			// 1.0 to exploration
+			// 0.2 to exploration
 			// 1.0 to exploitation
 
-			moveScores[i].score = 1.0 * score + avEval;
+			moveScores[i].score = 0.2 * score + avEval;
 		}
 	}
 

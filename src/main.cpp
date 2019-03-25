@@ -10,7 +10,8 @@
 #include <iostream>
 //using namespace Chess;
 
-const int positionsToEvaluatePerMove = 80000;
+const int positionsToEvaluatePerMove = 100000;
+bool debug = true;
 
 int test_main() {
 	//Train N games
@@ -117,10 +118,13 @@ int ucimain() {
 		}
 		else if (tokens[0] == "go") {
 			std::cout << "info Thinking..." << std::endl;
-			std::cout << "bestmove " << e.playMove(positionsToEvaluatePerMove) << std::endl;
+			std::cout << "bestmove " << e.playMove(positionsToEvaluatePerMove, debug) << std::endl;
 		}
 		else if (tokens[0] == "quit"){
 			break;
+		}
+		else if (tokens[0] == "eval") {
+			std::cout << e.evalCurrentPosition() << std::endl;
 		}
 		else { // no action
 			//nothing to do

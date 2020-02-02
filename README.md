@@ -1,2 +1,13 @@
 # XewaliChess
-Xewali is a Chess Engine which uses MCTS and (currently) a static evaluation function. I hope to improve the program to use a neural network and learn the evaluation function using deep reinforcement learning. The move generation code is from the Stockfish repository : https://github.com/daylen/stockfish-mac/tree/master/Chess
+
+## Algorithm
+
+Currently Xewali uses the minimax algorithm using alpha-beta pruning for best performance. A few other algorithms are also implemented (variants of MCTS), but they are not quite as strong.
+
+## Evaluation
+
+Xewali uses a static evaluation function which is a combination of material value and reachability of pieces on the board.
+
+## Credits
+
+The move generation code is from the Stockfish repository : https://github.com/daylen/stockfish-mac/tree/master/Chess

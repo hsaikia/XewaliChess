@@ -4,6 +4,7 @@
 */
 
 #include "mcts_engine.h"
+#include "ab_engine.h"
 #include "features.h"
 #include <ctime>
 #include <sstream>
@@ -11,6 +12,7 @@
 //using namespace Chess;
 
 const int positionsToEvaluatePerMove = 200000;
+const int depth = 6;
 bool debug = false;
 
 int test_main() {
@@ -76,7 +78,7 @@ int ucimain() {
 	Position::init_piece_square_tables();
 	MovePicker::init_phase_table();
 
-	MctsEngine e;
+	AlphaBetaEngine e;
 	std::string line;
 	while (getline(std::cin, line)) {
 		std::vector<std::string> tokens;
@@ -126,7 +128,7 @@ int ucimain() {
 		}
 		else if (tokens[0] == "go") {
 			std::cout << "info Thinking..." << std::endl;
-			std::cout << "bestmove " << e.playMove(positionsToEvaluatePerMove, debug) << std::endl;
+			std::cout << "bestmove " << e.playMove(depth, debug) << std::endl;
 		}
 		else if (tokens[0] == "quit"){
 			break;

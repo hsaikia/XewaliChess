@@ -27,25 +27,29 @@ double Features::evalStaticMaterialOnly(const Position& pos)
 	* MATERIAL
 	* Calculate attack reachability of every piece on an empty board
 
-	* Queen :	Corners and edges (8x8, 28) : 21 = 588
+	* Queen :	
+	Corners and edges (8x8, 28) : 21 = 588
 	Corners and edges (6x6, 20) : 23 = 460
 	Corners and edges (4x4, 12) : 25 = 300
 	Corners and edges (2x2, 4)  : 27 = 108
 
 	WEIGHTED AVERAGE OF QUEEN : 22.75
 
-	* Rook :	All Squares on board (64) : 14
+	* Rook :	
+	All Squares on board (64) : 14
 
 	WEIGHTED AVERAGE OF ROOK : 14
 
-	* Bishop:	Corners and edges (8x8, 28) : 7 = 196
+	* Bishop:	
+	Corners and edges (8x8, 28) : 7 = 196
 	Corners and edges (6x6, 20) : 9 = 180
 	Corners and edges (4x4, 12) : 11 = 132
 	Corners and edges (2x2, 4)  : 13 = 52
 
 	WEIGHTED AVERAGE OF BISHOP : 8.75
 
-	* Knight:	Corner Squares (4)								: 2 = 8
+	* Knight:	
+	Corner Squares (4)								: 2 = 8
 	Edge squares adjacent to corner square (8)		: 3 = 24
 	Other Edge squares (16)							: 4 = 64
 	Corner Squares (6x6, 4)							: 4 = 16
@@ -54,7 +58,8 @@ double Features::evalStaticMaterialOnly(const Position& pos)
 
 	WEIGHTED AVERAGE OF KNIGHT : 5.25
 
-	* Pawn :	Rank (2-7, not rook files, 36)  : 2 = 72
+	* Pawn :	
+	Rank (2-7, not rook files, 36)  : 2 = 72
 	Rank (2-7,     rook files, 12)  : 1 attack squares = 12
 	8th rank (1, any file, 8)       : average of rook/queen/knight/bishop moves at given square
 	: Assuming this is a queen = 8 * 21 = 168
@@ -62,7 +67,8 @@ double Features::evalStaticMaterialOnly(const Position& pos)
 	WEIGHTED AVERAGE OF PAWN : 3.9375 (considering queen promotion)
 	WEIGHTED AVERAGE OF PAWN : 1.3125 (not considering queen promotion)
 
-	* King :    Corner (4)					: 3 = 12
+	* King :    
+	Corner (4)					: 3 = 12
 	Edges except corners (24)	: 5 = 120
 	All other squares (36)		: 8 = 288
 	(not considering castling as it's not an attack move)
@@ -104,175 +110,67 @@ double Features::evalStaticMaterialOnly(const Position& pos)
 	return sum_material[0] - sum_material[1];
 }
 
-double Features::evalStatic(Position& pos, bool debug)
+double Features::evalStaticAttackDefenseOnly(Position & pos)
 {
-	std::vector< std::vector<double> > influence(2, std::vector<double>(64, 0.0));
+	double attacks[2];
+	attacks[0] = 0.0;
+	attacks[1] = 0.0;
 
-	auto side = pos.side_to_move();
-	
-	if (pos.is_mate()) {
-		return side == Color::WHITE ? -1 : 1;
-	}
-
-	/*
-	* INFLUENCE
-	* works like a markov chain
-	* start with weights of w1 in every square for white pieces and b1 for black pieces
-	* start simulating from side_to_move
-	* for every legal move from a total of M attacks for a piece P, assign a weight of 1/M to all squares which P attacks
-	* do the same for the next side to move
-	* now normalize both weights to sum to 1
-	* as long as there is a positive weight remaining, distribute again in the same way
-	* some squares will become heavily influenced by 1 color after some time
-	* total influence for the position is the sum of all white influence - sum of all black influence
-	* special treatment of kings - a king attack cannot be distributed to a square with `heavy' influence of the opposite side
-	*/
-
-	// calculate influence
-	for (Square s = SQ_A1; s <= SQ_H8; s++) {
-		auto piece = pos.piece_on(s);
-
-		switch (piece) {
-		case Piece::WQ:		influence[0][s] = 1.0;		influence[1][s] = 0.0; break;
-		case Piece::WR:		influence[0][s] = 1.0;		influence[1][s] = 0.0; break;
-		case Piece::WB:		influence[0][s] = 1.0;		influence[1][s] = 0.0; break;
-		case Piece::WN:		influence[0][s] = 1.0;		influence[1][s] = 0.0; break;
-		case Piece::WP:		influence[0][s] = 1.0;		influence[1][s] = 0.0; break;
-		case Piece::WK:		influence[0][s] = 1.0;		influence[1][s] = 0.0; break;
-		case Piece::BQ:		influence[1][s] = 1.0;		influence[0][s] = 0.0; break;
-		case Piece::BR:		influence[1][s] = 1.0;		influence[0][s] = 0.0; break;
-		case Piece::BB:		influence[1][s] = 1.0;		influence[0][s] = 0.0; break;
-		case Piece::BN:		influence[1][s] = 1.0;		influence[0][s] = 0.0; break;
-		case Piece::BP:		influence[1][s] = 1.0;		influence[0][s] = 0.0; break;
-		case Piece::BK:		influence[1][s] = 1.0;		influence[0][s] = 0.0; break;
-		case Piece::NO_PIECE: influence[0][s] = 0.0;	influence[1][s] = 0.0; break;
-		
-		default:break;
-		}
-	}
-
-	int to_move = side == Color::WHITE ? 0 : 1;
-
-	int rounds = 0;
-
-	double sum_influence[2];
-
-	double prevSc = 0.0;
-
-	while (true) {
-		if (debug) {
-			printf("Round %d\n", rounds);
-		}
-		if (to_move == (side == Color::WHITE ? 0 : 1) && rounds > 100) {
-			break;
-		}
-		auto color = to_move == 0 ? Color::WHITE : Color::BLACK;
-		// Set influences for a list of attack squares
-		auto setScores = [&](Square sq, Bitboard attack_squares) {
-			auto num_attacks = count_1s(attack_squares);
-			//printf("%s\n", square_to_string(sq).c_str());
-			//printf("Num attacks %d\n", num_attacks);
-			while (attack_squares) {
-				auto sqa = pop_1st_bit(&attack_squares);
-				influence[to_move][sqa] += (influence[to_move][sq] / num_attacks);
-			}
-		};
-
+	for (Color color = WHITE; color <= BLACK; color++)
+	{
 		// Queen
 		for (int i = 0; i < pos.queen_count(color); i++) {
 			auto sq = pos.queen_list(color, i);
-			auto sq_attacks_queen = pos.queen_attacks(sq);
-			//printf("%lld\n", sq_attacks_queen);
-			//auto num_attacks = count_1s(sq_attacks_queen);
-			//printf("%d\n", num_attacks);
-			setScores(sq, sq_attacks_queen);
+			auto sq_attacks = pos.queen_attacks(sq);
+			auto num_attacks = count_1s(sq_attacks);
+			attacks[color] += num_attacks;
 		}
 
 		// Rook
 		for (int i = 0; i < pos.rook_count(color); i++) {
 			auto sq = pos.rook_list(color, i);
-			auto sq_attacks_rook = pos.rook_attacks(sq);
-			setScores(sq, sq_attacks_rook);
+			auto sq_attacks = pos.rook_attacks(sq);
+			auto num_attacks = count_1s(sq_attacks);
+			attacks[color] += num_attacks;
 		}
 
 		// Bishop
 		for (int i = 0; i < pos.bishop_count(color); i++) {
 			auto sq = pos.bishop_list(color, i);
-			auto sq_attacks_bishop = pos.bishop_attacks(sq);
-			setScores(sq, sq_attacks_bishop);
+			auto sq_attacks = pos.bishop_attacks(sq);
+			auto num_attacks = count_1s(sq_attacks);
+			attacks[color] += num_attacks;
 		}
 
 		// Knight
 		for (int i = 0; i < pos.knight_count(color); i++) {
 			auto sq = pos.knight_list(color, i);
-			auto sq_attacks_knight = pos.knight_attacks(sq);
-			setScores(sq, sq_attacks_knight);
+			auto sq_attacks = pos.knight_attacks(sq);
+			auto num_attacks = count_1s(sq_attacks);
+			attacks[color] += num_attacks;
 		}
 
 		// Pawn
 		for (int i = 0; i < pos.pawn_count(color); i++) {
 			auto sq = pos.pawn_list(color, i);
-			auto sq_attacks_pawn = color == Color::WHITE ? pos.white_pawn_attacks(sq) : pos.black_pawn_attacks(sq);
-			setScores(sq, sq_attacks_pawn);
+			auto sq_attacks = color == Color::WHITE ? pos.white_pawn_attacks(sq) : pos.black_pawn_attacks(sq);
+			auto num_attacks = count_1s(sq_attacks);
+			attacks[color] += num_attacks;
 		}
 
 		// King
 		auto sq = pos.king_square(color);
-		auto sq_attacks_king = pos.king_attacks(sq);
-		setScores(sq, sq_attacks_king);
-	
-		// normalize influences
-		
-		for (int j = 0; j < 64; j++) {
-			auto ws = influence[0][j];
-			auto bs = influence[1][j];
-
-			influence[0][j] = ws / (ws + bs + 0.00001);
-			influence[1][j] = bs / (ws + bs + 0.00001);
-		}
-		
-		if (debug) {
-			// print influences
-			for (int i = 0; i < 2; i++) {
-				
-				if (i == 0) { printf("\nWhite "); } else { printf("\nBlack "); }
-
-				for (Square s = SQ_A1; s <= SQ_H8; s++) {
-					if (influence[i][s] > 0.00001) {
-						printf("[%s %.2lf]", square_to_string(s).c_str(), influence[i][s]);
-					}
-				}
-			}
-		}
-
-		to_move = 1 - to_move;
-		if (to_move == (side == Color::WHITE ? 0 : 1)) {
-			rounds++;
-			for (int i = 0; i < 2; i++) {
-				sum_influence[i] = 0;
-				for (int j = 0; j < 64; j++) {
-					sum_influence[i] += influence[i][j];
-				}
-			}
-
-			auto Sc = sum_influence[0] - sum_influence[1];
-			if (std::fabs(Sc - prevSc) < 0.001) {
-				break;
-			}
-
-			prevSc = Sc;
-			if (debug) {
-				printf("\nScore %lf\n", prevSc);
-			}
-		}
-		if (debug) {
-			printf("\nPress Enter to continue...");
-			getchar();
-		}
+		auto sq_attacks = pos.king_attacks(sq);
+		auto num_attacks = count_1s(sq_attacks);
+		attacks[color] += num_attacks;
 	}
+	return (attacks[0] - attacks[1]);
+}
 
+double Features::evalStatic(Position& pos)
+{
 	const double lambda = 0.1;
-	auto net_eval = (lambda * (sum_influence[0] - sum_influence[1])  +  (1 - lambda) * (evalStaticMaterialOnly(pos))) / 64;
+	auto net_eval = lambda * (evalStaticAttackDefenseOnly(pos))  +  (1 - lambda) * (evalStaticMaterialOnly(pos));
 
 	//always return between [1, 1]
 	if (net_eval < -1) {
@@ -282,8 +180,7 @@ double Features::evalStatic(Position& pos, bool debug)
 		return 1;
 	}
 	
-	return net_eval;
-	
+	return net_eval;	
 }
 
 double Features::evalStatic() const

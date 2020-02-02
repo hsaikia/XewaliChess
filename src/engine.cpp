@@ -255,7 +255,7 @@ void Engine::backProp(const std::shared_ptr<Position> pos, int result)
 
 double Engine::evalCurrentPosition() const
 {
-	return Features::evalStatic(*pos_, false);
+	return Features::evalStatic(*pos_);
 }
 
 void Engine::trainGame(const std::vector<Move>& game, int result)
@@ -494,7 +494,7 @@ double Engine::evaluatePosition(const std::shared_ptr<Position> pos, bool NN)
 	else 
 	{
 		//return f.evalStatic();
-		return Features::evalStatic(*pos, false);
+		return Features::evalStatic(*pos);
 	}
 }
 

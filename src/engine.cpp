@@ -18,13 +18,6 @@ Engine::Engine()
 
 void Engine::init()
 {
-	init_mersenne();
-	init_direction_table();
-	init_bitboards();
-	Position::init_zobrist();
-	Position::init_piece_square_tables();
-	MovePicker::init_phase_table();
-
 	book_.clear();
 
 	std::vector<size_t> topo = { Features::getNumFeatures(), 3, 1 };
@@ -59,7 +52,7 @@ std::string Engine::playMove(const int positionsToAnalyze, bool debug)
 	isReady_ = false;
 	int result;
 
-	if (Engine::checkTermination(pos_, result, false)) 
+	if (Engine::checkTermination(*pos_, result, false)) 
 	{
 		isReady_ = true;
 		return "";
@@ -100,7 +93,7 @@ int Engine::playGame(const int id, int movesToCheck, bool trainNN)
 	while (true) 
 	{ // game continues
 
-		if (Engine::checkTermination(pos, result, one_side_moves >= 2 * trainingGameMovesLimit)) 
+		if (Engine::checkTermination(*pos, result, one_side_moves >= 2 * trainingGameMovesLimit)) 
 		{
 			break;
 		}
@@ -200,7 +193,7 @@ void Engine::searchSubtree(const std::shared_ptr<Position> pos, std::map<std::st
 	
 	while (true) 
 	{
-		reachedTerminalPosition = Engine::checkTermination(leaf, result, depth >= 2 * trainingGameMovesLimit);
+		reachedTerminalPosition = Engine::checkTermination(*leaf, result, depth >= 2 * trainingGameMovesLimit);
 		auto fen = leaf->to_fen();
 
 		if (book.find(fen) == book.end()) { // never seen this position before!
@@ -249,7 +242,7 @@ void Engine::searchSubtree(const std::shared_ptr<Position> pos, std::map<std::st
 void Engine::backProp(const std::shared_ptr<Position> pos, int result)
 {		
 	Features f;
-	f.setFeaturesFromPos(pos);
+	f.setFeaturesFromPos(*pos);
 	
 	auto v = f.getFeatureVector();
 	net_.feedForward(v);
@@ -262,7 +255,7 @@ void Engine::backProp(const std::shared_ptr<Position> pos, int result)
 
 double Engine::evalCurrentPosition() const
 {
-	return Features::evalStatic(pos_, false);
+	return Features::evalStatic(*pos_, false);
 }
 
 void Engine::trainGame(const std::vector<Move>& game, int result)
@@ -339,7 +332,7 @@ Move Engine::pickNextMove(const std::shared_ptr<Position> pos, const std::map<st
 			// eval till now + mcts low visit prob
 
 			if (mctsVisited[i].seen == 0) {
-				score *= 10;
+				score *= sqrt(2.0 * log(totPositionsSeenFromThisPos));
 			}
 			else {
 				score *= sqrt(2.0 * log(totPositionsSeenFromThisPos) / (mctsVisited[i].seen));
@@ -455,25 +448,25 @@ void Engine::writeBook(const std::string & filename) const
 	file.close();
 }
 
-bool Engine::checkTermination(const std::shared_ptr<Position> pos, int & result, bool drawCondition)
+bool Engine::checkTermination(Position& pos, int & result, bool drawCondition)
 {
-	bool whiteToMove = (pos->side_to_move() == Color::WHITE);
+	bool whiteToMove = (pos.side_to_move() == Color::WHITE);
 
 	// 50 moves / threefold repetition / insufficient material to mate -> draw
-	if (pos->is_draw() || drawCondition) 
+	if (pos.is_draw() || drawCondition) 
 	{
 		result = 0;
 		return true;
 	}
 
-	if (pos->is_mate()) 
+	if (pos.is_mate()) 
 	{
 		result = whiteToMove ? -1 : 1;
 		return true;
 	}
 
 	Move mlist[256];
-	auto num_legal_moves = pos->all_legal_moves(mlist);
+	auto num_legal_moves = pos.all_legal_moves(mlist);
 
 	if (num_legal_moves == 0) 
 	{
@@ -492,7 +485,7 @@ double Engine::evaluatePosition(const std::shared_ptr<Position> pos, bool NN)
 	if (NN) 
 	{
 		Features f;
-		f.setFeaturesFromPos(pos);
+		f.setFeaturesFromPos(*pos);
 		net_.feedForward(f.getFeatureVector());
 		std::vector<double> outputs;
 		net_.getResults(outputs);
@@ -501,7 +494,7 @@ double Engine::evaluatePosition(const std::shared_ptr<Position> pos, bool NN)
 	else 
 	{
 		//return f.evalStatic();
-		return Features::evalStatic(pos, false);
+		return Features::evalStatic(*pos, false);
 	}
 }
 

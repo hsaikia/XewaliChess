@@ -24,9 +24,10 @@ class Features {
 public:
 	Features();
 	std::vector<double> getFeatureVector() const;
-	static double evalStatic(const std::shared_ptr<Position> pos, bool debug);
+	static double evalStaticMaterialOnly(const Position& pos);
+	static double evalStatic(Position& pos, bool debug);
 	double evalStatic() const;
-	void setFeaturesFromPos(const std::shared_ptr<Position> pos);
+	void setFeaturesFromPos(Position& pos);
 	void printFeatureVector() const;
 	static size_t getNumFeatures();
 

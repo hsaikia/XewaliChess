@@ -21,68 +21,60 @@ std::vector<double> Features::getFeatureVector() const
 	return V;
 }
 
-double Features::evalStatic(const std::shared_ptr<Position> pos, bool debug)
+double Features::evalStaticMaterialOnly(const Position& pos)
 {
-	std::vector< std::vector<double> > influence(2, std::vector<double>(64, 0.0));
-	std::vector< std::vector<double> > material(2, std::vector<double>(64, 0.0));
-
-	auto side = pos->side_to_move();
-	
-	if (pos->is_mate()) {
-		return side == Color::WHITE ? -1 : 1;
-	}
-
 	/*
 	* MATERIAL
 	* Calculate attack reachability of every piece on an empty board
 
 	* Queen :	Corners and edges (8x8, 28) : 21 = 588
-				Corners and edges (6x6, 20) : 23 = 460
-				Corners and edges (4x4, 12) : 25 = 300
-				Corners and edges (2x2, 4)  : 27 = 108
+	Corners and edges (6x6, 20) : 23 = 460
+	Corners and edges (4x4, 12) : 25 = 300
+	Corners and edges (2x2, 4)  : 27 = 108
 
-				WEIGHTED AVERAGE OF QUEEN : 22.75
+	WEIGHTED AVERAGE OF QUEEN : 22.75
 
 	* Rook :	All Squares on board (64) : 14
 
-				WEIGHTED AVERAGE OF ROOK : 14
+	WEIGHTED AVERAGE OF ROOK : 14
 
 	* Bishop:	Corners and edges (8x8, 28) : 7 = 196
-				Corners and edges (6x6, 20) : 9 = 180
-				Corners and edges (4x4, 12) : 11 = 132
-				Corners and edges (2x2, 4)  : 13 = 52
+	Corners and edges (6x6, 20) : 9 = 180
+	Corners and edges (4x4, 12) : 11 = 132
+	Corners and edges (2x2, 4)  : 13 = 52
 
-				WEIGHTED AVERAGE OF BISHOP : 8.75
-				
+	WEIGHTED AVERAGE OF BISHOP : 8.75
+
 	* Knight:	Corner Squares (4)								: 2 = 8
-				Edge squares adjacent to corner square (8)		: 3 = 24
-				Other Edge squares (16)							: 4 = 64
-				Corner Squares (6x6, 4)							: 4 = 16
-				Edge squares (6x6, 16)							: 6 = 96
-				Center Squares (4x4, 16)						: 8 = 128
+	Edge squares adjacent to corner square (8)		: 3 = 24
+	Other Edge squares (16)							: 4 = 64
+	Corner Squares (6x6, 4)							: 4 = 16
+	Edge squares (6x6, 16)							: 6 = 96
+	Center Squares (4x4, 16)						: 8 = 128
 
-				WEIGHTED AVERAGE OF KNIGHT : 5.25
+	WEIGHTED AVERAGE OF KNIGHT : 5.25
 
 	* Pawn :	Rank (2-7, not rook files, 36)  : 2 = 72
-				Rank (2-7,     rook files, 12)  : 1 attack squares = 12
-				8th rank (1, any file, 8)       : average of rook/queen/knight/bishop moves at given square
-												: Assuming this is a queen = 8 * 21 = 168
+	Rank (2-7,     rook files, 12)  : 1 attack squares = 12
+	8th rank (1, any file, 8)       : average of rook/queen/knight/bishop moves at given square
+	: Assuming this is a queen = 8 * 21 = 168
 
-				WEIGHTED AVERAGE OF PAWN : 3.9375 (considering queen promotion)
-				WEIGHTED AVERAGE OF PAWN : 1.3125 (not considering queen promotion)
+	WEIGHTED AVERAGE OF PAWN : 3.9375 (considering queen promotion)
+	WEIGHTED AVERAGE OF PAWN : 1.3125 (not considering queen promotion)
 
 	* King :    Corner (4)					: 3 = 12
-				Edges except corners (24)	: 5 = 120
-				All other squares (36)		: 8 = 288
-				(not considering castling as it's not an attack move)
+	Edges except corners (24)	: 5 = 120
+	All other squares (36)		: 8 = 288
+	(not considering castling as it's not an attack move)
 
-				WEIGHTED AVERAGE OF KING : 6.5625
+	WEIGHTED AVERAGE OF KING : 6.5625
 
 	*/
 
+	std::vector< std::vector<double> > material(2, std::vector<double>(64, 0.0));
 	// calculate material
 	for (Square s = SQ_A1; s <= SQ_H8; s++) {
-		auto piece = pos->piece_on(s);
+		auto piece = pos.piece_on(s);
 		switch (piece) {
 		case Piece::WQ: material[0][s] = 22.75;		material[1][s] = 0.0; break;
 		case Piece::WR: material[0][s] = 14.0;		material[1][s] = 0.0; break;
@@ -109,6 +101,18 @@ double Features::evalStatic(const std::shared_ptr<Position> pos, bool debug)
 			sum_material[i] += material[i][j];
 		}
 	}
+	return sum_material[0] - sum_material[1];
+}
+
+double Features::evalStatic(Position& pos, bool debug)
+{
+	std::vector< std::vector<double> > influence(2, std::vector<double>(64, 0.0));
+
+	auto side = pos.side_to_move();
+	
+	if (pos.is_mate()) {
+		return side == Color::WHITE ? -1 : 1;
+	}
 
 	/*
 	* INFLUENCE
@@ -126,7 +130,7 @@ double Features::evalStatic(const std::shared_ptr<Position> pos, bool debug)
 
 	// calculate influence
 	for (Square s = SQ_A1; s <= SQ_H8; s++) {
-		auto piece = pos->piece_on(s);
+		auto piece = pos.piece_on(s);
 
 		switch (piece) {
 		case Piece::WQ:		influence[0][s] = 1.0;		influence[1][s] = 0.0; break;
@@ -175,9 +179,9 @@ double Features::evalStatic(const std::shared_ptr<Position> pos, bool debug)
 		};
 
 		// Queen
-		for (int i = 0; i < pos->queen_count(color); i++) {
-			auto sq = pos->queen_list(color, i);
-			auto sq_attacks_queen = pos->queen_attacks(sq);
+		for (int i = 0; i < pos.queen_count(color); i++) {
+			auto sq = pos.queen_list(color, i);
+			auto sq_attacks_queen = pos.queen_attacks(sq);
 			//printf("%lld\n", sq_attacks_queen);
 			//auto num_attacks = count_1s(sq_attacks_queen);
 			//printf("%d\n", num_attacks);
@@ -185,36 +189,36 @@ double Features::evalStatic(const std::shared_ptr<Position> pos, bool debug)
 		}
 
 		// Rook
-		for (int i = 0; i < pos->rook_count(color); i++) {
-			auto sq = pos->rook_list(color, i);
-			auto sq_attacks_rook = pos->rook_attacks(sq);
+		for (int i = 0; i < pos.rook_count(color); i++) {
+			auto sq = pos.rook_list(color, i);
+			auto sq_attacks_rook = pos.rook_attacks(sq);
 			setScores(sq, sq_attacks_rook);
 		}
 
 		// Bishop
-		for (int i = 0; i < pos->bishop_count(color); i++) {
-			auto sq = pos->bishop_list(color, i);
-			auto sq_attacks_bishop = pos->bishop_attacks(sq);
+		for (int i = 0; i < pos.bishop_count(color); i++) {
+			auto sq = pos.bishop_list(color, i);
+			auto sq_attacks_bishop = pos.bishop_attacks(sq);
 			setScores(sq, sq_attacks_bishop);
 		}
 
 		// Knight
-		for (int i = 0; i < pos->knight_count(color); i++) {
-			auto sq = pos->knight_list(color, i);
-			auto sq_attacks_knight = pos->knight_attacks(sq);
+		for (int i = 0; i < pos.knight_count(color); i++) {
+			auto sq = pos.knight_list(color, i);
+			auto sq_attacks_knight = pos.knight_attacks(sq);
 			setScores(sq, sq_attacks_knight);
 		}
 
 		// Pawn
-		for (int i = 0; i < pos->pawn_count(color); i++) {
-			auto sq = pos->pawn_list(color, i);
-			auto sq_attacks_pawn = color == Color::WHITE ? pos->white_pawn_attacks(sq) : pos->black_pawn_attacks(sq);
+		for (int i = 0; i < pos.pawn_count(color); i++) {
+			auto sq = pos.pawn_list(color, i);
+			auto sq_attacks_pawn = color == Color::WHITE ? pos.white_pawn_attacks(sq) : pos.black_pawn_attacks(sq);
 			setScores(sq, sq_attacks_pawn);
 		}
 
 		// King
-		auto sq = pos->king_square(color);
-		auto sq_attacks_king = pos->king_attacks(sq);
+		auto sq = pos.king_square(color);
+		auto sq_attacks_king = pos.king_attacks(sq);
 		setScores(sq, sq_attacks_king);
 	
 		// normalize influences
@@ -268,7 +272,7 @@ double Features::evalStatic(const std::shared_ptr<Position> pos, bool debug)
 	}
 
 	const double lambda = 0.1;
-	auto net_eval = (lambda * (sum_influence[0] - sum_influence[1])  +  (1 - lambda) * (sum_material[0] - sum_material[1]) ) / 64;
+	auto net_eval = (lambda * (sum_influence[0] - sum_influence[1])  +  (1 - lambda) * (evalStaticMaterialOnly(pos))) / 64;
 
 	//always return between [1, 1]
 	if (net_eval < -1) {
@@ -321,31 +325,31 @@ void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos) {
 
 	for (Square S = SQ_A1; S <= SQ_H8; S++) {
 
-		if (S == pos->ep_square()) {
-			V[773] = pos->side_to_move() == Color::WHITE ? 1 : -1;
+		if (S == pos.ep_square()) {
+			V[773] = pos.side_to_move() == Color::WHITE ? 1 : -1;
 		}
 
-		if (!pos->square_is_occupied(S)) {
+		if (!pos.square_is_occupied(S)) {
 			continue;
 		}
 
-		auto pt = pos->type_of_piece_on(S);
-		auto c = pos->color_of_piece_on(S);
+		auto pt = pos.type_of_piece_on(S);
+		auto c = pos.color_of_piece_on(S);
 
 		V[12 * S + 6 * c + pt - 1] = 1;
 	}
 
-	V[768] = pos->side_to_move() == Color::WHITE ? 1 : -1;
-	V[769] = pos->can_castle_kingside(Color::WHITE) ? 1 : 0;
-	V[770] = pos->can_castle_queenside(Color::WHITE) ? 1 : 0;
-	V[771] = pos->can_castle_kingside(Color::BLACK) ? 1 : 0;
-	V[772] = pos->can_castle_queenside(Color::BLACK) ? 1 : 0;	
+	V[768] = pos.side_to_move() == Color::WHITE ? 1 : -1;
+	V[769] = pos.can_castle_kingside(Color::WHITE) ? 1 : 0;
+	V[770] = pos.can_castle_queenside(Color::WHITE) ? 1 : 0;
+	V[771] = pos.can_castle_kingside(Color::BLACK) ? 1 : 0;
+	V[772] = pos.can_castle_queenside(Color::BLACK) ? 1 : 0;	
 }
 */
 
-void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos)
+void Features::setFeaturesFromPos(Position& pos)
 {
-	auto side = pos->side_to_move();
+	auto side = pos.side_to_move();
 
 	V.clear();
 	V.resize(numFeatures_);
@@ -354,72 +358,72 @@ void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos)
 
 	//V[5] = 0; // white attacks - black attacks
 
-	//pos->
+	//pos.
 	
 	for (Square s = SQ_A1; s <= SQ_H8; s++) {
 		for (Color c = WHITE; c <= BLACK; c++) {
 			// Queen
-			for (int i = 0; i < pos->queen_count(c); i++) {
-				auto sq = pos->queen_list(c, i);
+			for (int i = 0; i < pos.queen_count(c); i++) {
+				auto sq = pos.queen_list(c, i);
 				if (c == WHITE) {
-					V[1] += pos->queen_attacks_square(sq, s);
+					V[1] += pos.queen_attacks_square(sq, s);
 				}
 				else {
-					V[1] -= pos->queen_attacks_square(sq, s);
+					V[1] -= pos.queen_attacks_square(sq, s);
 				}
 			}
 
 			//Bishops
-			for (int i = 0; i < pos->bishop_count(c); i++) {
-				auto sq = pos->bishop_list(c, i);
+			for (int i = 0; i < pos.bishop_count(c); i++) {
+				auto sq = pos.bishop_list(c, i);
 				if (c == WHITE) {
-					V[2] += pos->bishop_attacks_square(sq, s);
+					V[2] += pos.bishop_attacks_square(sq, s);
 				}
 				else {
-					V[2] -= pos->bishop_attacks_square(sq, s);
+					V[2] -= pos.bishop_attacks_square(sq, s);
 				}
 			}
 
 			//Rooks
-			for (int i = 0; i < pos->rook_count(c); i++) {
-				auto sq = pos->rook_list(c, i);
+			for (int i = 0; i < pos.rook_count(c); i++) {
+				auto sq = pos.rook_list(c, i);
 				if (c == WHITE) {
-					V[3] += pos->rook_attacks_square(sq, s);
+					V[3] += pos.rook_attacks_square(sq, s);
 				}
 				else {
-					V[3] -= pos->rook_attacks_square(sq, s);
+					V[3] -= pos.rook_attacks_square(sq, s);
 				}
 			}
 
 			//Knights
-			for (int i = 0; i < pos->knight_count(c); i++) {
-				auto sq = pos->knight_list(c, i);
+			for (int i = 0; i < pos.knight_count(c); i++) {
+				auto sq = pos.knight_list(c, i);
 				if (c == WHITE) {
-					V[4] += pos->knight_attacks_square(sq, s);
+					V[4] += pos.knight_attacks_square(sq, s);
 				}
 				else {
-					V[4] -= pos->knight_attacks_square(sq, s);
+					V[4] -= pos.knight_attacks_square(sq, s);
 				}
 			}
 
 			//Pawns
-			for (int i = 0; i < pos->pawn_count(c); i++) {
-				auto sq = pos->pawn_list(c, i);
+			for (int i = 0; i < pos.pawn_count(c); i++) {
+				auto sq = pos.pawn_list(c, i);
 				if (c == WHITE) {
-					V[5] += pos->white_pawn_attacks_square(sq, s);
+					V[5] += pos.white_pawn_attacks_square(sq, s);
 				}
 				else {
-					V[5] -= pos->black_pawn_attacks_square(sq, s);
+					V[5] -= pos.black_pawn_attacks_square(sq, s);
 				}
 			}
 
 			//King
-			auto sq = pos->king_square(c);
+			auto sq = pos.king_square(c);
 			if (c == WHITE) {
-				V[6] += pos->king_attacks_square(sq, s);
+				V[6] += pos.king_attacks_square(sq, s);
 			}
 			else {
-				V[6] -= pos->king_attacks_square(sq, s);
+				V[6] -= pos.king_attacks_square(sq, s);
 			}	
 		}
 	}
@@ -430,26 +434,26 @@ void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos)
 	// TODO : make these king safety parameters
 	// TODO : can castle does not work because after castling it favors the opposite side, so it actually prevents castling
 	
-	V[7] = 0; // int(pos->can_castle_kingside (Color::WHITE))  - int(pos->can_castle_kingside(Color::BLACK));
-	V[8] = 0; // int(pos->can_castle_queenside(Color::WHITE)) - int(pos->can_castle_queenside(Color::BLACK));
-	V[9] = pos->is_check() ? -V[0] : 0;
+	V[7] = 0; // int(pos.can_castle_kingside (Color::WHITE))  - int(pos.can_castle_kingside(Color::BLACK));
+	V[8] = 0; // int(pos.can_castle_queenside(Color::WHITE)) - int(pos.can_castle_queenside(Color::BLACK));
+	V[9] = pos.is_check() ? -V[0] : 0;
 
 	// piece counts
-	V[10] = pos->queen_count(Color::WHITE) - pos->queen_count(Color::BLACK);
-	V[11] = pos->bishop_count(Color::WHITE) - pos->bishop_count(Color::BLACK);
-	V[12] = pos->rook_count(Color::WHITE) - pos->rook_count(Color::BLACK);
-	V[13] = pos->knight_count(Color::WHITE) - pos->knight_count(Color::BLACK);
-	V[14] = pos->pawn_count(Color::WHITE) - pos->pawn_count(Color::BLACK);
+	V[10] = pos.queen_count(Color::WHITE) - pos.queen_count(Color::BLACK);
+	V[11] = pos.bishop_count(Color::WHITE) - pos.bishop_count(Color::BLACK);
+	V[12] = pos.rook_count(Color::WHITE) - pos.rook_count(Color::BLACK);
+	V[13] = pos.knight_count(Color::WHITE) - pos.knight_count(Color::BLACK);
+	V[14] = pos.pawn_count(Color::WHITE) - pos.pawn_count(Color::BLACK);
 
 	//for (int i = 10; i < 15; i++) {
 	//	V[i] /= 2;
 	//}
 
-	V[15] = pos->has_pawn_on_7th(Color::WHITE) - pos->has_pawn_on_7th(Color::BLACK);
+	V[15] = pos.has_pawn_on_7th(Color::WHITE) - pos.has_pawn_on_7th(Color::BLACK);
 
 	// Is MATE!
 	V[16] = 0;
-	if (pos->is_mate()) {
+	if (pos.is_mate()) {
 		if (side == WHITE) {
 			V[16] = -1;
 		}
@@ -467,7 +471,7 @@ void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos)
 
 	for (Square fr = SQ_A1; fr <= SQ_H8; fr++) {
 
-		if (!pos->square_is_occupied(fr)) {
+		if (!pos.square_is_occupied(fr)) {
 			continue;
 		}
 
@@ -476,19 +480,19 @@ void Features::setFeaturesFromPos(const std::shared_ptr<Position> pos)
 				continue;
 			}
 
-			if (!pos->square_is_occupied(to)) {
+			if (!pos.square_is_occupied(to)) {
 				continue;
 			}
 
-			if (!pos->piece_attacks_square(fr, to)) {
+			if (!pos.piece_attacks_square(fr, to)) {
 				continue;
 			}
 		
-			auto pieceFr = pos->type_of_piece_on(fr);
-			auto pieceTo = pos->type_of_piece_on(to);
+			auto pieceFr = pos.type_of_piece_on(fr);
+			auto pieceTo = pos.type_of_piece_on(to);
 
-			auto pieceFrColor = pos->color_of_piece_on(fr);
-			auto pieceToColor = pos->color_of_piece_on(to);
+			auto pieceFrColor = pos.color_of_piece_on(fr);
+			auto pieceToColor = pos.color_of_piece_on(to);
 
 			attack_and_defend[pieceFrColor][pieceToColor][pieceFr][pieceTo]++;
 		}

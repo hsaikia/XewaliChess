@@ -50,7 +50,7 @@ public:
 	bool isReady() const;
 	void setPosition(const std::string & fen, const std::vector<std::string>& moves);
 	int playGame(const int id, int movesToCheck, bool trainNN);
-	std::string playMove(const int positionsToAnalyze, bool debug);
+	virtual std::string playMove(const int positionsToAnalyze, bool debug);
 	static void writeToPgn(const std::vector<Move>& game, const int result, const std::string& filename);
 	//void playFromPos(const std::shared_ptr<Position> pos);
 	
@@ -62,7 +62,11 @@ public:
 	//
 	NeuralNetwork net_;
 	double evalCurrentPosition() const;
-	
+
+protected:
+	static bool checkTermination(Position& pos, int& result, bool drawCondition);
+	bool isReady_;
+	std::shared_ptr<Position> pos_;
 private:
 	void trainGame(const std::vector<Move>& game, int result);
 	/*
@@ -76,11 +80,11 @@ private:
 	);
 	void searchSubtree(const std::shared_ptr<Position> pos, std::map<std::string, Record>& book, int& depth, bool NN);
 	void backProp(const std::shared_ptr<Position> pos, int result);
-	static bool checkTermination(const std::shared_ptr<Position> pos, int& result, bool drawCondition);
+	
 	double evaluatePosition(const std::shared_ptr<Position> pos, bool NN);
 
 	// reintroducing for bootstrap..
 	std::map<std::string, Record> book_;
-	std::shared_ptr<Position> pos_;
-	bool isReady_;
+	
+
 };

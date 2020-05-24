@@ -24,6 +24,7 @@ std::string AlphaBetaEngine::playMove(const int depth, bool debug)
 
 	for (size_t i = 0; i < numLegalMoves; i++)
 	{
+		//std::cout << " Move " << move_to_string(mlist[i]) << "\n";
 		UndoInfo u;
 		std::unique_ptr<Position> posTemp = std::make_unique<Position>(*pos_);
 		posTemp->do_move(mlist[i], u);
@@ -44,6 +45,7 @@ std::string AlphaBetaEngine::playMove(const int depth, bool debug)
 				bestScore = eval;
 			}
 		}
+		std::cout << "Move " << move_to_string(mlist[i]) << " Evaluation : " << eval << std::endl;
 	}
 
 	std::cout << "Best Move " << move_to_string(mlist[bestmove]) << " Evaluation : " << bestScore << std::endl;
@@ -60,7 +62,7 @@ double AlphaBetaEngine::minimax(Position & pos, const int depth, double alpha, d
 {
 	if (depth == 0)
 	{
-		return 0.5 * Features::evalStaticAttackDefenseOnly(pos) + 0.5 * Features::evalStaticMaterialOnly(pos);
+		return 0.4 * Features::evalStaticAttackDefenseOnly(pos) + 0.6 * Features::evalStaticMaterialOnly(pos);
 	}
 
 	int result;
@@ -115,4 +117,15 @@ double AlphaBetaEngine::minimax(Position & pos, const int depth, double alpha, d
 		return minEval;
 	}
 }
+
+//void AlphaBetaEngine::sortMoves(Move mlist[], size_t numLegalMoves)
+//{
+//	for(size_t i = 0; i < numLegalMoves; i++)
+//	{
+//		for (size_t j = 1; j < numLegalMoves; j++)
+//		{
+//			if( mlist[j])
+//		}
+//	}
+//}
 

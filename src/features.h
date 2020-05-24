@@ -26,6 +26,7 @@ public:
 	std::vector<double> getFeatureVector() const;
 	static double evalStaticMaterialOnly(const Position& pos);
 	static double evalStaticAttackDefenseOnly(Position& pos);
+	//static double evalStaticAttackDefensePriority(Position& pos);
 	static double evalStatic(Position& pos);
 	double evalStatic() const;
 	void setFeaturesFromPos(Position& pos);

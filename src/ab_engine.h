@@ -3,9 +3,11 @@
 
 class AlphaBetaEngine : public Engine
 {
-public:
+  public:
 	AlphaBetaEngine();
 	std::string playMove(const int depth, bool debug) override;
-private:
-	double minimax(Position& pos, const int depth, double alpha, double beta);
+
+  private:
+	double minimax(Position &pos, const int depth, double alpha, double beta);
+	//void sortMoves(Move mlist[], size_t numLegalMoves);
 };

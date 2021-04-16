@@ -1,7 +1,7 @@
 # Xewali Chess
 
 ## Algorithm
-Currently Xewali uses the minimax algorithm using alpha-beta pruning for best performance. A few other algorithms are also implemented (variants of MCTS), but they are not quite as strong.
+Currently Xewali uses the minimax algorithm using alpha-beta pruning. It also searches for all subsequent return captures on a square if the search ends at a capture move.
 
 ## Evaluation
 Xewali uses a static evaluation function which consists of material only. Extensive approaches are always being experimented upon.

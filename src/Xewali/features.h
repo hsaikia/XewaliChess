@@ -1,6 +1,6 @@
 /*
 * author: Himangshu Saikia, 2018
-* email : saikia@kth.se
+* email : himangshu.saikia.iitg@gmail.com
 */
 #pragma once
 #include <vector>

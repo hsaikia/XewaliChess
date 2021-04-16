@@ -1,6 +1,6 @@
 /*
- * author: Himangshu Saikia, 2018
- * email : saikia@kth.se
+* author: Himangshu Saikia, 2018
+* email : himangshu.saikia.iitg@gmail.com
 */
 #include <algorithm>
 #include "Xewali/features.h"

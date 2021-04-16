@@ -1,3 +1,8 @@
+/*
+* author: Himangshu Saikia, 2018
+* email : himangshu.saikia.iitg@gmail.com
+*/
+
 #include <algorithm>
 #include <ctime>
 #include <set>

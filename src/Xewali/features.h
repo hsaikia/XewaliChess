@@ -1,5 +1,5 @@
 /*
-* author: Himangshu Saikia, 2018
+* author: Himangshu Saikia, 2018-2021
 * email : himangshu.saikia.iitg@gmail.com
 */
 #pragma once
@@ -10,16 +10,20 @@
 
 using namespace Chess;
 
-/**
-* Important to align all features so that their mean is zero.
-*/
+namespace Features
+{
+	/// Piece values
+	constexpr double KING_VALUE = 2000.0;
+	constexpr double QUEEN_VAL = 9.0;
+	constexpr double ROOK_VAL = 5.0;
+	constexpr double BISHOP_VAL = 3.0;
+	constexpr double KNIGHT_VAL = 3.0;
+	constexpr double PAWN_VAL = 1.0;
+	constexpr double TOT_VAL = (QUEEN_VAL + 2 * ROOK_VAL + 2 * BISHOP_VAL + 2 * KNIGHT_VAL + 8 * PAWN_VAL);
 
-class Features {
-
-public:
-	Features();
-	static double eval_static(Position& pos);
-	static double eval_influence(const Position& pos);
+	/// static evaluates the position
+	/// @param[in] pos The position
+	double eval_static(Position& pos);
 
 	/**
 	* Calculates the influence of a side/color on a given square
@@ -38,14 +42,16 @@ public:
 	* should be considered) are considered next IN ORDER OF INCREASING influence. Ties are broken
 	* by rule 1 and 2.
 	*/
-	static double eval_static_attack_defense_only(const Position& pos);
-	static bool has_game_ended(Position& pos, int& result, bool drawCondition);
-private:
-	static double eval_static_material_only(const Position& pos);
+	/// @param[in] pos The position
+	double eval_static_attack_defense_only(const Position& pos);
 
+	/// Checks if the game has ended in a win/loss or draw
+	/// @param[in] pos The position
+	/// @param[out] result the result of the game (1, -1, 0) if the game has ended
+	bool has_game_ended(Position& pos, int& result);
 
-
-
-
+	/// Evaluates the position using material only
+	/// @param[in] pos The position
+	double eval_static_material_only(const Position& pos);
 };
 

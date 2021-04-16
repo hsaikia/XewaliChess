@@ -1,5 +1,5 @@
 /*
-* author: Himangshu Saikia, 2018
+* author: Himangshu Saikia, 2018-2021
 * email : himangshu.saikia.iitg@gmail.com
 */
 
@@ -49,13 +49,8 @@ namespace AbIterDeepEngine
 
 	void print_tree(std::shared_ptr<MoveNode> move_node, const std::string& old, int& count, std::ofstream& file)
 	{
-		//std::cout << "Print Tree called\n";
 		std::string pre = "";
-		if (move_node->move == MOVE_NONE)
-		{
-			//
-		}
-		else
+		if (move_node->move != MOVE_NONE)
 		{
 			pre = old + " " + move_to_string(move_node->move);
 			file << pre << "[" << move_node->eval << "]\n";
@@ -90,26 +85,15 @@ namespace AbIterDeepEngine
 				continue;
 			}
 
-			//if (only_captures_and_checks && !pos.move_is_capture(move) && !pos.move_is_check(move))
-			//{
-			//	// only captures and check moves need to be added
-			//	continue;
-			//}
-
 			// if only captures need to be taken
 			// 1. first move should be a capture
 			// 2. second move should be capture at the same square
+			// TODO : include checks as well
 			if (only_captures_and_checks && !(is_root_move_capture && move_to(node->move) == move_to(move)))
 			{
 				// only return captures
 				continue;
 			}
-
-			// sometimes captures are not high value captures
-			// looking into these lines are wasteful and can result in wrong scores
-			// being propagated to the top
-
-			//std::cout << "Adding move " << move_to_string(move) << "\n";
 
 			auto child_ptr = std::make_shared<MoveNode>();
 			child_ptr->move = move;
@@ -117,8 +101,6 @@ namespace AbIterDeepEngine
 			node->order_next.emplace_back(child_ptr);
 			node->keys_next.insert(move);
 		}
-
-		//print_tree(node, "");
 
 		if (node->move != MOVE_NONE)
 		{
@@ -129,7 +111,6 @@ namespace AbIterDeepEngine
 	void minimax(std::shared_ptr<MoveNode> node, Position& pos, double alpha, double beta, int depth)
 	{
 		populate_next_moves(node, pos, depth == 0);
-		//print_tree(node, "");
 		UndoInfo u;
 		if (node->order_next.empty())
 		{
@@ -161,7 +142,6 @@ namespace AbIterDeepEngine
 			const auto move_node = node->order_next[i];
 			minimax(move_node, pos, alpha, beta, (std::max)(depth - 1, 0));
 			double eval = move_node->eval;
-			//std::cout << "Evaluating move " << move_to_string(move_node->move) << " Depth " << depth << " Eval is " << eval << "AB [" << alpha << "," << beta << "]\n";
 
 			if (white_to_move)
 			{

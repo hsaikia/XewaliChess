@@ -23,6 +23,7 @@ namespace Features
 
 	/// static evaluates the position
 	/// @param[in] pos The position
+	/// return The evaluation
 	double eval_static(Position& pos);
 
 	/**
@@ -42,16 +43,21 @@ namespace Features
 	* should be considered) are considered next IN ORDER OF INCREASING influence. Ties are broken
 	* by rule 1 and 2.
 	*/
+
+	/// Evaluates the position using influence of pieces
 	/// @param[in] pos The position
-	double eval_static_attack_defense_only(const Position& pos);
+	/// return The evaluation
+	double eval_static_attack_defense(const Position& pos);
 
 	/// Checks if the game has ended in a win/loss or draw
 	/// @param[in] pos The position
 	/// @param[out] result the result of the game (1, -1, 0) if the game has ended
+	/// return true if the game has ended, false otherwise
 	bool has_game_ended(Position& pos, int& result);
 
-	/// Evaluates the position using material only
+	/// Evaluates the position using material
 	/// @param[in] pos The position
-	double eval_static_material_only(const Position& pos);
+	/// return The evaluation
+	double eval_static_material(const Position& pos);
 };
 

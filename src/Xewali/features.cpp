@@ -69,7 +69,7 @@ namespace Features
 	//constexpr double KNIGHT_VAL = 5.25;
 	//constexpr double PAWN_VAL = 1.3125;
 
-	double Features::eval_static_material_only(const Position& pos)
+	double Features::eval_static_material(const Position& pos)
 	{
 		return (QUEEN_VAL * (pos.queen_count(Color::WHITE) - pos.queen_count(Color::BLACK)) +
 			ROOK_VAL * (pos.rook_count(Color::WHITE) - pos.rook_count(Color::BLACK)) +
@@ -106,7 +106,7 @@ namespace Features
 	// 3. if rooks can take queens which are defended -> advantage
 	// 4. if any piece can take any other piece which is attacked more times than it is defended
 
-	double Features::eval_static_attack_defense_only(const Position & pos)
+	double Features::eval_static_attack_defense(const Position & pos)
 	{
 		// TODO : handle pinned pawns bishops, rooks and queens
 		// easiest is to pass the legal move bitboard and calculate influence
@@ -315,7 +315,7 @@ namespace Features
 			return res;
 		}
 
-		return eval_static_material_only(pos);
+		return eval_static_material(pos);
 		//return eval_influence(pos);
 	}
 

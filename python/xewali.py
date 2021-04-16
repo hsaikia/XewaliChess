@@ -13,6 +13,7 @@ def evaluate(board):
     for x in chess.SQUARES:
         sq_from = chess.SQUARE_NAMES[x]
         piece = board.piece_at(x)
+        board.
         if piece == None:
             continue
         else:

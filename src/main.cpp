@@ -8,9 +8,10 @@
 #include <ctime>
 #include <sstream>
 #include <iostream>
+#include <random>
 
 // plies
-const int depth = 4;
+const int depth = 6;
 
 void tokenize(std::string line, std::vector<std::string>& tokens)
 {
@@ -26,6 +27,7 @@ void tokenize(std::string line, std::vector<std::string>& tokens)
 
 int ucimain()
 {
+	std::mt19937 rand_gen(time(NULL));
 	Position pos;
 	double currentEvaluation = 0.;
 	std::string line;
@@ -92,7 +94,7 @@ int ucimain()
 			std::cout << "Position\n";
 			pos.print();
 			std::cout << "info Thinking..." << std::endl;
-			std::cout << "bestmove " << AbIterDeepEngine::play_move(pos, currentEvaluation, depth) << std::endl;
+			std::cout << "bestmove " << AbIterDeepEngine::play_move(pos, currentEvaluation, depth, rand_gen) << std::endl;
 		}
 		else if (tokens[0] == "quit")
 		{

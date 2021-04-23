@@ -307,6 +307,80 @@ namespace Features
 		return double(influence_white - influence_black) / 64;
 	}
 
+	double eval_static_attack_defense_fast(const Position& pos)
+	{
+		Bitboard attack_bb[2][7];
+
+		for (Color color = WHITE; color <= BLACK; color++)
+		{
+			for (auto p = PieceType::PAWN; p <= KING; p++)
+			{
+				attack_bb[color][p] = EmptyBoardBB;
+			}
+		}
+
+		for (Color color = WHITE; color <= BLACK; color++)
+		{
+			// Pawns
+			for (int i = 0; i < pos.pawn_count(color); i++)
+			{
+				auto sq = pos.pawn_list(color, i);
+				auto attacks = color == Color::WHITE ? pos.white_pawn_attacks(sq) : pos.black_pawn_attacks(sq);
+				attack_bb[color][PieceType::PAWN] |= attacks;
+			}
+
+			// Bishops
+			for (int i = 0; i < pos.bishop_count(color); i++)
+			{
+				auto sq = pos.bishop_list(color, i);
+				auto attacks = pos.bishop_attacks(sq) & (~attack_bb[opposite_color(color)][PieceType::PAWN]);
+				attack_bb[color][PieceType::BISHOP] |= attacks;
+			}
+
+			// Knights
+			for (int i = 0; i < pos.knight_count(color); i++)
+			{
+				auto sq = pos.knight_list(color, i);
+				auto attacks = pos.knight_attacks(sq) & (~attack_bb[opposite_color(color)][PieceType::PAWN]);
+				attack_bb[color][PieceType::KNIGHT] |= attacks;
+			}
+
+			// Rooks
+			for (int i = 0; i < pos.rook_count(color); i++)
+			{
+				auto sq = pos.rook_list(color, i);
+				auto attacks = pos.rook_attacks(sq) & (~attack_bb[opposite_color(color)][PieceType::PAWN]);
+				attack_bb[color][PieceType::ROOK] |= attacks;
+			}
+
+			// Queens
+			for (int i = 0; i < pos.queen_count(color); i++)
+			{
+				auto sq = pos.queen_list(color, i);
+				auto attacks = pos.queen_attacks(sq) & (~attack_bb[opposite_color(color)][PieceType::PAWN] | ~attack_bb[opposite_color(color)][PieceType::KNIGHT] | ~attack_bb[opposite_color(color)][PieceType::BISHOP] | ~attack_bb[opposite_color(color)][PieceType::ROOK]);
+				attack_bb[color][PieceType::QUEEN] |= attacks;
+			}
+
+			// King
+			attack_bb[color][PieceType::KING] = pos.king_attacks(pos.king_square(color)) & (~attack_bb[opposite_color(color)][PieceType::PAWN] | ~attack_bb[opposite_color(color)][PieceType::KNIGHT] | ~attack_bb[opposite_color(color)][PieceType::BISHOP] | ~attack_bb[opposite_color(color)][PieceType::ROOK] | ~attack_bb[opposite_color(color)][PieceType::QUEEN]);
+		}
+
+		int influence[2];
+
+		for (Color color = Color::WHITE; color <= Color::BLACK; color++)
+		{
+			influence[color] = 0;
+			for (auto p = PieceType::PAWN; p <= PieceType::KING; p++)
+			{
+				influence[color] += count_1s(attack_bb[color][p]);
+			}
+		}
+
+		//std::cout << "White Influence " << influence[Color::WHITE] << " Black Influence " << influence[Color::BLACK] << "\n";
+
+		return double(influence[Color::WHITE] - influence[Color::BLACK]) / 64.0;
+	}
+
 	double eval_static(Position& pos)
 	{
 		int res;
@@ -315,8 +389,10 @@ namespace Features
 			return res;
 		}
 
-		return eval_static_material(pos);
-		//return eval_influence(pos);
+		//return eval_static_material(pos);
+		//return eval_static_attack_defense_fast(pos);
+
+		return 0.9 * eval_static_material(pos) + 0.1 * eval_static_attack_defense_fast(pos);
 	}
 
 	bool has_game_ended(Position& pos, int & result)

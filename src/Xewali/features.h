@@ -49,6 +49,11 @@ namespace Features
 	/// return The evaluation
 	double eval_static_attack_defense(const Position& pos);
 
+	/// Evaluates the position using influence of pieces
+	/// @param[in] pos The position
+	/// return The evaluation
+	double eval_static_attack_defense_fast(const Position& pos);
+
 	/// Checks if the game has ended in a win/loss or draw
 	/// @param[in] pos The position
 	/// @param[out] result the result of the game (1, -1, 0) if the game has ended

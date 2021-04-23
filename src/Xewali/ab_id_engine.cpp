@@ -50,7 +50,7 @@ namespace AbIterDeepEngine
 	void print_tree(std::shared_ptr<MoveNode> move_node, const std::string& old, int& count, std::ofstream& file)
 	{
 		std::string pre = "";
-		if (move_node->move != MOVE_NONE)
+		if (move_node->move != MOVE_NONE && std::abs(move_node->eval) < 2)
 		{
 			pre = old + " " + move_to_string(move_node->move);
 			file << pre << "[" << move_node->eval << "]\n";
@@ -108,6 +108,27 @@ namespace AbIterDeepEngine
 		}
 	}
 
+	void order_moves(std::shared_ptr<MoveNode> node, const bool white_to_move)
+	{
+		// sort the moves
+		if (white_to_move)
+		{
+			std::sort(node->order_next.begin(), node->order_next.end(),
+				[](std::shared_ptr<MoveNode> a, std::shared_ptr<MoveNode> b)
+			{
+				return a->eval > b->eval;
+			});
+		}
+		else
+		{
+			std::sort(node->order_next.begin(), node->order_next.end(),
+				[](std::shared_ptr<MoveNode> a, std::shared_ptr<MoveNode> b)
+			{
+				return a->eval < b->eval;
+			});
+		}
+	}
+
 	void minimax(std::shared_ptr<MoveNode> node, Position& pos, double alpha, double beta, int depth)
 	{
 		populate_next_moves(node, pos, depth == 0);
@@ -154,7 +175,7 @@ namespace AbIterDeepEngine
 				beta = (std::min)(beta, eval);
 			}
 
-			if (beta <= alpha) // cutoff reached - stop looking at other moves
+			if (beta < alpha) // cutoff reached - stop looking at other moves
 			{
 				break;
 			}
@@ -165,26 +186,10 @@ namespace AbIterDeepEngine
 			pos.undo_move(node->move, u);
 		}
 
-		// sort the moves
-		if (white_to_move)
-		{
-			std::sort(node->order_next.begin(), node->order_next.end(),
-				[](std::shared_ptr<MoveNode> a, std::shared_ptr<MoveNode> b)
-			{
-				return a->eval > b->eval;
-			});
-		}
-		else
-		{
-			std::sort(node->order_next.begin(), node->order_next.end(),
-				[](std::shared_ptr<MoveNode> a, std::shared_ptr<MoveNode> b)
-			{
-				return a->eval < b->eval;
-			});
-		}
+		order_moves(node, white_to_move);
 	}
 
-	std::string play_move(Position& pos, double& eval, const int max_depth)
+	std::string play_move(Position& pos, double& eval, const int max_depth, std::mt19937& rand_gen)
 	{
 		// Iterative Deepening searches the move tree by iteratively increasing 
 		// the depth to a max ddepth. This may sound counterintuitive, since
@@ -208,9 +213,9 @@ namespace AbIterDeepEngine
 
 		//file.close();
 
-		for (size_t i = 0; i < no_move->order_next.size(); i++)
+		for (const auto next_move_ptr : no_move->order_next)
 		{
-			std::cout << "Eval of move [" << move_to_string(no_move->order_next[i]->move) << "] is {" << no_move->order_next[i]->eval << "}\n";
+			std::cout << "Eval of move [" << move_to_string(next_move_ptr->move) << "] is {" << next_move_ptr->eval << "}\n";
 		}
 
 		if (no_move->order_next.empty())

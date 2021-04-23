@@ -16,7 +16,7 @@ position startpos moves e2e4 e7e5 f1e2 a7a6 e2g4 b7b6 d1f3 c7c6 a2a4 d7d6 a1a3 f
 go
 
 ucinewgame
-position startpos moves b2b3 e7e5 g1f3 b8c6 f3e5
+position startpos moves e2e4 e7e5 g1f3 d7d6 f1c4 b8a6 b1c3 c8g4
 go
 
 ucinewgame
@@ -46,4 +46,11 @@ go
 ucinewgame
 position startpos moves e2e4 e7e5
 go
+
+ucinewgame
+position fen r4b1r/ppp2pp1/3k1q2/7p/2P5/P2N3Q/2PN1PPP/4R1K1 b - - 3 21 
+go
+
 ```
+
+

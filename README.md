@@ -74,9 +74,9 @@ go
 
 ## Material considerations
 
-	Calculate attack reachability of every piece on an empty board
+Calculate attack reachability of every piece on an empty board
 
-	- Queen :
+- Queen :
 	```
 	Corners and edges (8x8, 28) : 21 = 588
 	Corners and edges (6x6, 20) : 23 = 460
@@ -86,14 +86,14 @@ go
 
 	WEIGHTED AVERAGE OF QUEEN : 22.75
 
-	- Rook :
+- Rook :
 	```
 	All Squares on board (64) : 14
 	```
 
 	WEIGHTED AVERAGE OF ROOK : 14
 
-	- Bishop:
+- Bishop:
 	```
 	Corners and edges (8x8, 28) : 7 = 196
 	Corners and edges (6x6, 20) : 9 = 180
@@ -103,7 +103,7 @@ go
 
 	WEIGHTED AVERAGE OF BISHOP : 8.75
 
-	- Knight:
+- Knight:
 	
 	```
 	Corner Squares (4)								: 2 = 8
@@ -116,7 +116,7 @@ go
 
 	WEIGHTED AVERAGE OF KNIGHT : 5.25
 
-	- Pawn :
+- Pawn :
 	
 	```
 	Rank (2-7, not rook files, 36)  : 2 = 72
@@ -128,7 +128,7 @@ go
 	WEIGHTED AVERAGE OF PAWN : 3.9375 (considering queen promotion)
 	WEIGHTED AVERAGE OF PAWN : 1.3125 (not considering queen promotion)
 
-	- King :
+- King :
 	
 	```
 	Corner (4)					: 3 = 12

@@ -1,11 +1,11 @@
 # Xewali Chess
 
 ## Algorithm
-- Xewali uses the minimax algorithm using alpha-beta pruning. 
-- It orders moves using iterative deepening so that better lines are searched early on for the pruning step to be more effective. 
+- Xewali uses the [minimax](https://www.chessprogramming.org/Minimax) algorithm using [alpha-beta pruning](https://www.chessprogramming.org/Alpha-Beta). 
+- It orders moves using [internal iterative deepening](https://www.chessprogramming.org/Internal_Iterative_Deepening) so that better lines are searched early on for the pruning step to be more effective. 
 - It also searches for all subsequent return captures on a square if the search ends at a capture move. 
 - [Piece tables](https://www.chessprogramming.org/Simplified_Evaluation_Function) to amplify importance of a piece at certain squares is implemented to attract pieces to good squares.
-- Transposition tables are implemented to search at much deeper levels and not to re-evaluate positions already evaluated at an equal or higher depth.
+- [Transposition tables](https://www.chessprogramming.org/Transposition_Table) are implemented to search at much deeper levels and not to re-evaluate positions already evaluated at an equal or higher depth.
 
 
 ## Evaluation

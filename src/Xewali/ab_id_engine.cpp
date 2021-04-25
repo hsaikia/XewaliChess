@@ -9,16 +9,13 @@
 #include <map>
 #include <fstream>
 #include <ctime>
+#include <random>
 #include "Chess/mersenne.h"
 #include "Chess/movepick.h"
 #include "Xewali/ab_id_engine.h"
-#include "Xewali/features.h"
 
 namespace AbIterDeepEngine
 {
-
-	constexpr int MAX_POSITIONS_TO_EVAL = 1600000;
-
 	void init()
 	{
 		init_mersenne();
@@ -135,7 +132,7 @@ namespace AbIterDeepEngine
 
 	void minimax(std::shared_ptr<MoveNode> node, Position& pos, double alpha, double beta, int depth, std::map<Key, std::pair<int, double> >& transposition_table, int& transpositions)
 	{
-		populate_next_moves(node, pos, depth == 0 || transposition_table.size() >= MAX_POSITIONS_TO_EVAL);
+		populate_next_moves(node, pos, depth == 0);
 		UndoInfo u;
 
 		// make move
@@ -148,7 +145,7 @@ namespace AbIterDeepEngine
 		auto key = pos.get_key();
 		auto table_val = transposition_table.find(key);
 
-		// position should have seen before and evaluated at an equal or higher depth
+		// position should have been seen before and evaluated at an equal or higher depth
 		// if this is the case, the position need not be evaluated again
 		if (table_val != transposition_table.end() && table_val->second.first >= depth)
 		{
@@ -160,7 +157,7 @@ namespace AbIterDeepEngine
 			// terminal position reached, call static evaluation function
 			if (node->order_next.empty())
 			{
-				node->eval = Features::eval(pos);
+				node->eval = Evaluation::eval(pos);
 				// terminal position evaluated
 				transposition_table[pos.get_key()] = std::pair<int, double>(depth, node->eval);
 			}
@@ -218,23 +215,43 @@ namespace AbIterDeepEngine
 		std::cout << "\n";
 	}
 
-	std::string play_move(Position& pos, double& eval, std::mt19937& rand_gen)
+	std::string play_move(Position& pos, double& eval, const Evaluation::Book& book)
 	{
+		// Try to find a random move from the book
+		std::mt19937 rand_gen(time(NULL));
+		const Key pos_key = pos.get_key();
+		std::vector<Move> book_moves;
+		if (book.find(pos_key) != book.end())
+		{
+			const auto& move_set = book.find(pos_key)->second;
+			book_moves = std::vector<Move>(move_set.begin(), move_set.end());
+		}
+
+		// see if there are more than one choices
+		if (book_moves.size() > 1)
+		{
+			std::uniform_int_distribution<std::size_t> rand_idx(0, book_moves.size() - 1);
+			auto idx = rand_idx(rand_gen);
+			std::cout << "Choosing random move from " << book_moves.size() << " moves\n";
+			auto choosen_move = book_moves[idx];
+			return move_to_string(choosen_move);
+		}
+
 		// Iterative Deepening searches the move tree by iteratively increasing 
-		// the depth to a max ddepth. This may sound counterintuitive, since
-		// we end up evaluating the same positions again, but the mover ordering matters.
-		// After every search at a lower depth, we re-order the move search order
-		// so that alpha beta pruning can be more effective
+		// the depth to a max depth. This may sound counterintuitive, since
+		// we end up evaluating many of the same positions again, but the move ordering 
+		// obtained during previous searches at lower depths can help in pruning 
+		// more branches at higher depths.
 
 		clock_t start = std::clock();
 
-		constexpr int max_depth = 100;
+		//constexpr int max_depth = 100;
 		int depth = 1;
 		std::map<Key, std::pair<int, double> > transposition_table;
 
 		std::shared_ptr<MoveNode> no_move = std::make_shared<MoveNode>();
 
-		for (depth = 1; depth <= max_depth; depth++)
+		for (depth = 1; ; depth++)
 		{
 			int transpositions = 0;
 			transposition_table.clear();
@@ -243,7 +260,7 @@ namespace AbIterDeepEngine
 			if (!no_move->order_next.empty())
 			{
 				// If mate found, no need to evaluate deeper
-				if (std::abs(no_move->order_next[0]->eval) == Features::mateEval)
+				if (std::abs(no_move->order_next[0]->eval) == Evaluation::mateEval)
 				{
 					break;
 				}
@@ -259,11 +276,7 @@ namespace AbIterDeepEngine
 			std::cout << transposition_table.size() << " Positions evaluated\n";
 			std::cout << transpositions << " Transpositions\n";
 
-			if (transposition_table.size() >= MAX_POSITIONS_TO_EVAL)
-			{
-				break;
-			}
-
+			// do not search at higher depths if more than a second has elapsed
 			if ((std::clock() - start) / (double)CLOCKS_PER_SEC > 1.0)
 			{
 				break;

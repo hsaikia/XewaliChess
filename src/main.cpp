@@ -4,11 +4,10 @@
 */
 
 #include "Xewali/ab_id_engine.h"
-#include "Xewali/features.h"
+#include "Xewali/evaluation.h"
 #include <ctime>
 #include <sstream>
 #include <iostream>
-#include <random>
 
 void tokenize(std::string line, std::vector<std::string>& tokens)
 {
@@ -24,7 +23,13 @@ void tokenize(std::string line, std::vector<std::string>& tokens)
 
 int ucimain()
 {
-	std::mt19937 rand_gen(time(NULL));
+	// initializes the bitboards
+	AbIterDeepEngine::init();
+
+	// load the book moves
+	Evaluation::Book book;
+	Evaluation::load_games(book, "./uci_games.txt");
+
 	Position pos;
 	double currentEvaluation = 0.;
 	std::string line;
@@ -46,7 +51,7 @@ int ucimain()
 		}
 		else if (tokens[0] == "ucinewgame")
 		{
-			AbIterDeepEngine::init();
+			// nothing to init
 		}
 		else if (tokens[0] == "isready")
 		{
@@ -91,7 +96,7 @@ int ucimain()
 			std::cout << "Position\n";
 			pos.print();
 			std::cout << "info Thinking..." << std::endl;
-			std::cout << "bestmove " << AbIterDeepEngine::play_move(pos, currentEvaluation, rand_gen) << std::endl;
+			std::cout << "bestmove " << AbIterDeepEngine::play_move(pos, currentEvaluation, book) << std::endl;
 		}
 		else if (tokens[0] == "quit")
 		{

@@ -5,6 +5,7 @@
 #pragma once
 #include <vector>
 #include <memory>
+#include <random>
 #include "Chess/position.h"
 #include "Chess/bitboard.h"
 
@@ -13,56 +14,192 @@ using namespace Chess;
 namespace Features
 {
 	/// Piece values
-	constexpr double KING_VALUE = 2000.0;
-	constexpr double QUEEN_VAL = 9.0;
-	constexpr double ROOK_VAL = 5.0;
-	constexpr double BISHOP_VAL = 3.0;
-	constexpr double KNIGHT_VAL = 3.0;
-	constexpr double PAWN_VAL = 1.0;
-	constexpr double TOT_VAL = (QUEEN_VAL + 2 * ROOK_VAL + 2 * BISHOP_VAL + 2 * KNIGHT_VAL + 8 * PAWN_VAL);
+	constexpr double mateEval = 1e6;
+	constexpr int KING_VAL = 20000;
+	constexpr int QUEEN_VAL = 900;
+	constexpr int ROOK_VAL = 500;
+	constexpr int BISHOP_VAL = 330;
+	constexpr int KNIGHT_VAL = 320;
+	constexpr int PAWN_VAL = 100;
 
-	/// static evaluates the position
+	/// Piece tables
+	constexpr int BlackPawnTable[64] =
+	{
+		0,  0,  0,  0,  0,  0,  0,  0,
+		50, 50, 50, 50, 50, 50, 50, 50,
+		10, 10, 20, 30, 30, 20, 10, 10,
+		5,  5, 10, 25, 25, 10,  5,  5,
+		0,  0,  0, 20, 20,  0,  0,  0,
+		5, -5,-10,  0,  0,-10, -5,  5,
+		5, 10, 10,-20,-20, 10, 10,  5,
+		0,  0,  0,  0,  0,  0,  0,  0
+	};
+
+	constexpr int WhitePawnTable[64] =
+	{
+		0,  0,  0,  0,  0,  0,  0,  0,
+		5, 10, 10,-20,-20, 10, 10,  5,
+		5, -5,-10,  0,  0,-10, -5,  5,
+		0,  0,  0, 20, 20,  0,  0,  0,
+		5,  5, 10, 25, 25, 10,  5,  5,
+		10, 10, 20, 30, 30, 20, 10, 10,
+		50, 50, 50, 50, 50, 50, 50, 50,
+		0,  0,  0,  0,  0,  0,  0,  0
+	};
+
+	constexpr int BlackKnightTable[64] =
+	{
+		-50,-40,-30,-30,-30,-30,-40,-50,
+		-40,-20,  0,  0,  0,  0,-20,-40,
+		-30,  0, 10, 15, 15, 10,  0,-30,
+		-30,  5, 15, 20, 20, 15,  5,-30,
+		-30,  0, 15, 20, 20, 15,  0,-30,
+		-30,  5, 10, 15, 15, 10,  5,-30,
+		-40,-20,  0,  5,  5,  0,-20,-40,
+		-50,-40,-30,-30,-30,-30,-40,-50
+	};
+
+	constexpr int WhiteKnightTable[64] =
+	{
+		-50,-40,-30,-30,-30,-30,-40,-50,
+		-40,-20,  0,  5,  5,  0,-20,-40,
+		-30,  5, 10, 15, 15, 10,  5,-30,
+		-30,  0, 15, 20, 20, 15,  0,-30,
+		-30,  5, 15, 20, 20, 15,  5,-30,
+		-30,  0, 10, 15, 15, 10,  0,-30,
+		-40,-20,  0,  0,  0,  0,-20,-40,
+		-50,-40,-30,-30,-30,-30,-40,-50
+	};
+
+	constexpr int BlackBishopTable[64] =
+	{
+		-20,-10,-10,-10,-10,-10,-10,-20,
+		-10,  0,  0,  0,  0,  0,  0,-10,
+		-10,  0,  5, 10, 10,  5,  0,-10,
+		-10,  5,  5, 10, 10,  5,  5,-10,
+		-10,  0, 10, 10, 10, 10,  0,-10,
+		-10, 10, 10, 10, 10, 10, 10,-10,
+		-10,  5,  0,  0,  0,  0,  5,-10,
+		-20,-10,-10,-10,-10,-10,-10,-20
+	};
+
+	constexpr int WhiteBishopTable[64] =
+	{
+		-20,-10,-10,-10,-10,-10,-10,-20,
+		-10,  5,  0,  0,  0,  0,  5,-10,
+		-10, 10, 10, 10, 10, 10, 10,-10,
+		-10,  0, 10, 10, 10, 10,  0,-10,
+		-10,  5,  5, 10, 10,  5,  5,-10,
+		-10,  0,  5, 10, 10,  5,  0,-10,
+		-10,  0,  0,  0,  0,  0,  0,-10,
+		-20,-10,-10,-10,-10,-10,-10,-20
+	};
+
+	constexpr int BlackRookTable[64] =
+	{
+		0,  0,  0,  0,  0,  0,  0,  0,
+		5, 10, 10, 10, 10, 10, 10,  5,
+		-5,  0,  0,  0,  0,  0,  0, -5,
+		-5,  0,  0,  0,  0,  0,  0, -5,
+		-5,  0,  0,  0,  0,  0,  0, -5,
+		-5,  0,  0,  0,  0,  0,  0, -5,
+		-5,  0,  0,  0,  0,  0,  0, -5,
+		0,  0,  0,  5,  5,  0,  0,  0
+	};
+
+	constexpr int WhiteRookTable[64] =
+	{
+		0,  0,  0,  5,  5,  0,  0,  0,
+		-5,  0,  0,  0,  0,  0,  0, -5,
+		-5,  0,  0,  0,  0,  0,  0, -5,
+		-5,  0,  0,  0,  0,  0,  0, -5,
+		-5,  0,  0,  0,  0,  0,  0, -5,
+		-5,  0,  0,  0,  0,  0,  0, -5,
+		5, 10, 10, 10, 10, 10, 10,  5,
+		0,  0,  0,  0,  0,  0,  0,  0
+	};
+
+	constexpr int BlackQueenTable[64] =
+	{
+		-20,-10,-10, -5, -5,-10,-10,-20,
+		-10,  0,  0,  0,  0,  0,  0,-10,
+		-10,  0,  5,  5,  5,  5,  0,-10,
+		-5,  0,  5,  5,  5,  5,  0, -5,
+		 0,  0,  5,  5,  5,  5,  0, -5,
+		-10,  5,  5,  5,  5,  5,  0,-10,
+		-10,  0,  5,  0,  0,  0,  0,-10,
+		-20,-10,-10, -5, -5,-10,-10,-20
+	};
+
+	constexpr int WhiteQueenTable[64] =
+	{
+		-20,-10,-10, -5, -5,-10,-10,-20,
+		-10,  0,  5,  0,  0,  0,  0,-10,
+		-10,  5,  5,  5,  5,  5,  0,-10,
+		0,  0,  5,  5,  5,  5,  0, -5,
+		-5,  0,  5,  5,  5,  5,  0, -5,
+		-10,  0,  5,  5,  5,  5,  0,-10,
+		-10,  0,  0,  0,  0,  0,  0,-10,
+		-20,-10,-10, -5, -5,-10,-10,-20
+	};
+
+	constexpr int BlackKingMGTable[64] =
+	{
+		-30,-40,-40,-50,-50,-40,-40,-30,
+		-30,-40,-40,-50,-50,-40,-40,-30,
+		-30,-40,-40,-50,-50,-40,-40,-30,
+		-30,-40,-40,-50,-50,-40,-40,-30,
+		-20,-30,-30,-40,-40,-30,-30,-20,
+		-10,-20,-20,-20,-20,-20,-20,-10,
+		20, 20,  0,  0,  0,  0, 20, 20,
+		20, 30, 10,  0,  0, 10, 30, 20
+	};
+
+	constexpr int WhiteKingMGTable[64] =
+	{
+		20, 30, 10,  0,  0, 10, 30, 20,
+		20, 20,  0,  0,  0,  0, 20, 20,
+		-10,-20,-20,-20,-20,-20,-20,-10,
+		-20,-30,-30,-40,-40,-30,-30,-20,
+		-30,-40,-40,-50,-50,-40,-40,-30,
+		-30,-40,-40,-50,-50,-40,-40,-30,
+		-30,-40,-40,-50,-50,-40,-40,-30,
+		-30,-40,-40,-50,-50,-40,-40,-30
+	};
+
+	constexpr int BlackKingEGTable[64] =
+	{
+		-50,-40,-30,-20,-20,-30,-40,-50,
+		-30,-20,-10,  0,  0,-10,-20,-30,
+		-30,-10, 20, 30, 30, 20,-10,-30,
+		-30,-10, 30, 40, 40, 30,-10,-30,
+		-30,-10, 30, 40, 40, 30,-10,-30,
+		-30,-10, 20, 30, 30, 20,-10,-30,
+		-30,-30,  0,  0,  0,  0,-30,-30,
+		-50,-30,-30,-30,-30,-30,-30,-50
+	};
+
+	constexpr int WhiteKingEGTable[64] =
+	{
+		-50,-30,-30,-30,-30,-30,-30,-50,
+		-30,-30,  0,  0,  0,  0,-30,-30,
+		-30,-10, 20, 30, 30, 20,-10,-30,
+		-30,-10, 30, 40, 40, 30,-10,-30,
+		-30,-10, 30, 40, 40, 30,-10,-30,
+		-30,-10, 20, 30, 30, 20,-10,-30,
+		-30,-20,-10,  0,  0,-10,-20,-30,
+		-50,-40,-30,-20,-20,-30,-40,-50
+	};
+
+	/// Evaluates the position using material, piece tables adn mobility
 	/// @param[in] pos The position
 	/// return The evaluation
-	double eval_static(Position& pos);
-
-	/**
-	* Calculates the influence of a side/color on a given square
-	*
-	* side to move = attacker
-	* other side = defender
-	*
-	* 1. If a square is reachable ONLY by a piece of one color/side, that square is controlled
-	* by that side.
-	*
-	* 2. If a square if defended ONLY by a piece with higher overall influence, say a queen
-	* and attacked by a piece with at least one piece of lower overall influence, say a pawn, the square
-	* is controlled by the attacker.
-	*
-	* 3. If the influence is tied, other pieces that attack/defend (also sliding motion
-	* should be considered) are considered next IN ORDER OF INCREASING influence. Ties are broken
-	* by rule 1 and 2.
-	*/
-
-	/// Evaluates the position using influence of pieces
-	/// @param[in] pos The position
-	/// return The evaluation
-	double eval_static_attack_defense(const Position& pos);
-
-	/// Evaluates the position using influence of pieces
-	/// @param[in] pos The position
-	/// return The evaluation
-	double eval_static_attack_defense_fast(const Position& pos);
+	double eval(Position& pos);
 
 	/// Checks if the game has ended in a win/loss or draw
 	/// @param[in] pos The position
 	/// @param[out] result the result of the game (1, -1, 0) if the game has ended
 	/// return true if the game has ended, false otherwise
 	bool has_game_ended(Position& pos, int& result);
-
-	/// Evaluates the position using material
-	/// @param[in] pos The position
-	/// return The evaluation
-	double eval_static_material(const Position& pos);
 };
 

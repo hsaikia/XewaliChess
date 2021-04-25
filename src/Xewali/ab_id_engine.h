@@ -18,10 +18,9 @@ namespace AbIterDeepEngine
 	/// The move tree is pruned using alpha beta pruning
 	/// @param[in] pos The position
 	/// @param[out] eval The evaluation at the current position
-	/// @param[in] max_depth The max depth to search
 	/// @param[in/out] rand_gen The random number generator
 	/// @return the best move
-	std::string play_move(Chess::Position& pos, double& eval, const int max_depth, std::mt19937& rand_gen);
+	std::string play_move(Chess::Position& pos, double& eval, std::mt19937& rand_gen);
 
 	/// Sets a position using a position denoted by a fen string and a sequence of moves following the position
 	/// @param[out] pos The position

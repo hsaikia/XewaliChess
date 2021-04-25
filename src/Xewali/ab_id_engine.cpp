@@ -6,7 +6,9 @@
 #include <algorithm>
 #include <ctime>
 #include <set>
+#include <map>
 #include <fstream>
+#include <ctime>
 #include "Chess/mersenne.h"
 #include "Chess/movepick.h"
 #include "Xewali/ab_id_engine.h"
@@ -14,6 +16,8 @@
 
 namespace AbIterDeepEngine
 {
+
+	constexpr int MAX_POSITIONS_TO_EVAL = 1600000;
 
 	void init()
 	{
@@ -129,67 +133,92 @@ namespace AbIterDeepEngine
 		}
 	}
 
-	void minimax(std::shared_ptr<MoveNode> node, Position& pos, double alpha, double beta, int depth)
+	void minimax(std::shared_ptr<MoveNode> node, Position& pos, double alpha, double beta, int depth, std::map<Key, std::pair<int, double> >& transposition_table, int& transpositions)
 	{
-		populate_next_moves(node, pos, depth == 0);
+		populate_next_moves(node, pos, depth == 0 || transposition_table.size() >= MAX_POSITIONS_TO_EVAL);
 		UndoInfo u;
-		if (node->order_next.empty())
-		{
-			if (node->move != MOVE_NONE)
-			{
-				pos.do_move(node->move, u);
-			}
 
-			node->eval = Features::eval_static(pos);
-
-			if (node->move != MOVE_NONE)
-			{
-				pos.undo_move(node->move, u);
-			}
-
-			return;
-		}
-
+		// make move
 		if (node->move != MOVE_NONE)
 		{
 			pos.do_move(node->move, u);
 		}
 
-		bool white_to_move = pos.side_to_move() == Color::WHITE;
-		node->eval = white_to_move ? std::numeric_limits<double>::lowest() : (std::numeric_limits<double>::max)();
+		// get the zobrist hash key
+		auto key = pos.get_key();
+		auto table_val = transposition_table.find(key);
 
-		for (int i = 0; i < node->order_next.size(); i++)
+		// position should have seen before and evaluated at an equal or higher depth
+		// if this is the case, the position need not be evaluated again
+		if (table_val != transposition_table.end() && table_val->second.first >= depth)
 		{
-			const auto move_node = node->order_next[i];
-			minimax(move_node, pos, alpha, beta, (std::max)(depth - 1, 0));
-			double eval = move_node->eval;
-
-			if (white_to_move)
+			node->eval = table_val->second.second;
+			transpositions++;
+		}
+		else
+		{
+			// terminal position reached, call static evaluation function
+			if (node->order_next.empty())
 			{
-				node->eval = (std::max)(node->eval, eval);
-				alpha = (std::max)(alpha, eval);
+				node->eval = Features::eval(pos);
+				// terminal position evaluated
+				transposition_table[pos.get_key()] = std::pair<int, double>(depth, node->eval);
 			}
 			else
 			{
-				node->eval = (std::min)(node->eval, eval);
-				beta = (std::min)(beta, eval);
-			}
+				// recurse
+				bool white_to_move = pos.side_to_move() == Color::WHITE;
+				node->eval = white_to_move ? std::numeric_limits<double>::lowest() : (std::numeric_limits<double>::max)();
 
-			if (beta < alpha) // cutoff reached - stop looking at other moves
-			{
-				break;
+				for (int i = 0; i < node->order_next.size(); i++)
+				{
+					const auto move_node = node->order_next[i];
+					minimax(move_node, pos, alpha, beta, (std::max)(depth - 1, 0), transposition_table, transpositions);
+					double eval = move_node->eval;
+
+					if (white_to_move)
+					{
+						node->eval = (std::max)(node->eval, eval);
+						alpha = (std::max)(alpha, eval);
+					}
+					else
+					{
+						node->eval = (std::min)(node->eval, eval);
+						beta = (std::min)(beta, eval);
+					}
+
+					if (beta < alpha) // cutoff reached - stop looking at other moves
+					{
+						break;
+					}
+				}
+
+				// non-terminal position evaluated
+				transposition_table[pos.get_key()] = std::pair<int, double>(depth, node->eval);
+				// order child moves
+				order_moves(node, white_to_move);
 			}
 		}
 
+		// undo move
 		if (node->move != MOVE_NONE)
 		{
 			pos.undo_move(node->move, u);
 		}
-
-		order_moves(node, white_to_move);
 	}
 
-	std::string play_move(Position& pos, double& eval, const int max_depth, std::mt19937& rand_gen)
+	void print_move_sequence(std::shared_ptr<MoveNode> move_node)
+	{
+		std::cout << "[" << move_node->eval << "] ";
+		while (move_node)
+		{
+			std::cout << move_to_string(move_node->move) << " ";
+			move_node = move_node->order_next.empty() ? nullptr : move_node->order_next[0];
+		}
+		std::cout << "\n";
+	}
+
+	std::string play_move(Position& pos, double& eval, std::mt19937& rand_gen)
 	{
 		// Iterative Deepening searches the move tree by iteratively increasing 
 		// the depth to a max ddepth. This may sound counterintuitive, since
@@ -197,11 +226,48 @@ namespace AbIterDeepEngine
 		// After every search at a lower depth, we re-order the move search order
 		// so that alpha beta pruning can be more effective
 
+		clock_t start = std::clock();
+
+		constexpr int max_depth = 100;
+		int depth = 1;
+		std::map<Key, std::pair<int, double> > transposition_table;
+
 		std::shared_ptr<MoveNode> no_move = std::make_shared<MoveNode>();
 
-		for (int depth = 1; depth <= max_depth; depth++)
+		for (depth = 1; depth <= max_depth; depth++)
 		{
-			minimax(no_move, pos, std::numeric_limits<double>::lowest(), (std::numeric_limits<double>::max)(), depth);
+			int transpositions = 0;
+			transposition_table.clear();
+			minimax(no_move, pos, std::numeric_limits<double>::lowest(), (std::numeric_limits<double>::max)(), depth, transposition_table, transpositions);
+
+			if (!no_move->order_next.empty())
+			{
+				// If mate found, no need to evaluate deeper
+				if (std::abs(no_move->order_next[0]->eval) == Features::mateEval)
+				{
+					break;
+				}
+
+				// if there's only one move, no point recursing to higher depths
+				if (no_move->order_next.size() == 1)
+				{
+					break;
+				}
+			}
+
+			std::cout << "---- Search at Depth " << depth << " completed. ----\n";
+			std::cout << transposition_table.size() << " Positions evaluated\n";
+			std::cout << transpositions << " Transpositions\n";
+
+			if (transposition_table.size() >= MAX_POSITIONS_TO_EVAL)
+			{
+				break;
+			}
+
+			if ((std::clock() - start) / (double)CLOCKS_PER_SEC > 1.0)
+			{
+				break;
+			}
 		}
 
 		//std::ofstream file;

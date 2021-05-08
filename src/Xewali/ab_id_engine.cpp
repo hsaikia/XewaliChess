@@ -57,13 +57,13 @@ namespace AbIterDeepEngine
 			file << pre << "[" << move_node->eval << "]\n";
 			count++;
 		}
-		for (size_t i = 0; i < move_node->order_next.size(); i++)
+		for (std::size_t i = 0; i < move_node->order_next.size(); i++)
 		{
 			print_tree(move_node->order_next[i], pre, count, file);
 		}
 	}
 
-	void populate_next_moves(std::shared_ptr<MoveNode> node, Position& pos, bool only_captures_and_checks)
+	void populate_next_moves(std::shared_ptr<MoveNode> node, Position& pos, bool only_captures)
 	{
 		bool is_root_move_capture = false;
 		UndoInfo u;
@@ -76,7 +76,7 @@ namespace AbIterDeepEngine
 		Move move_list[256];
 		int num_legal_moves = pos.all_legal_moves(move_list);
 		bool white_to_move = pos.side_to_move() == Color::WHITE;
-		for (size_t i = 0; i < num_legal_moves; i++)
+		for (std::size_t i = 0; i < num_legal_moves; i++)
 		{
 			const auto& move = move_list[i];
 
@@ -86,11 +86,10 @@ namespace AbIterDeepEngine
 				continue;
 			}
 
-			// if only captures need to be taken
+			// If only captures need to be taken
 			// 1. first move should be a capture
 			// 2. second move should be capture at the same square
-			// TODO : include checks as well
-			if (only_captures_and_checks && !(is_root_move_capture && move_to(node->move) == move_to(move)))
+			if (only_captures && !(is_root_move_capture && move_to(node->move) == move_to(move)))
 			{
 				// only return captures
 				continue;
@@ -167,7 +166,7 @@ namespace AbIterDeepEngine
 				bool white_to_move = pos.side_to_move() == Color::WHITE;
 				node->eval = white_to_move ? std::numeric_limits<double>::lowest() : (std::numeric_limits<double>::max)();
 
-				for (int i = 0; i < node->order_next.size(); i++)
+				for (std::size_t i = 0; i < node->order_next.size(); i++)
 				{
 					const auto move_node = node->order_next[i];
 					minimax(move_node, pos, alpha, beta, (std::max)(depth - 1, 0), transposition_table, transpositions);
@@ -245,7 +244,6 @@ namespace AbIterDeepEngine
 
 		clock_t start = std::clock();
 
-		//constexpr int max_depth = 100;
 		int depth = 1;
 		std::map<Key, std::pair<int, double> > transposition_table;
 
@@ -282,15 +280,6 @@ namespace AbIterDeepEngine
 				break;
 			}
 		}
-
-		//std::ofstream file;
-		//file.open("Lines.txt");
-
-		//int lines_seen = 0;
-		//print_tree(no_move, "", lines_seen, file);
-		//file << "Lines seen " << lines_seen << "\n";
-
-		//file.close();
 
 		for (const auto next_move_ptr : no_move->order_next)
 		{

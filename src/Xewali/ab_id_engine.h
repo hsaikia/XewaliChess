@@ -20,8 +20,9 @@ namespace AbIterDeepEngine
 	/// @param[in] pos The position
 	/// @param[out] eval The evaluation at the current position
 	/// @param[in] book The opening book
+	/// @param[in] time_to_move The CPU time taken to evaluate a move
 	/// @return the best move
-	std::string play_move(Chess::Position& pos, double& eval, const Evaluation::Book& book);
+	std::string play_move(Chess::Position& pos, double& eval, const Evaluation::Book& book, double time_to_move = 1.0);
 
 	/// Sets a position using a position denoted by a fen string and a sequence of moves following the position
 	/// @param[out] pos The position

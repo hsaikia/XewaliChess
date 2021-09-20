@@ -214,8 +214,9 @@ namespace AbIterDeepEngine
 		std::cout << "\n";
 	}
 
-	std::string play_move(Position& pos, double& eval, const Evaluation::Book& book)
+	std::string play_move(Position& pos, double& eval, const Evaluation::Book& book, double time_to_move)
 	{
+		//std::cout << "Move time is " << time_to_move << "\n";
 		// Try to find a random move from the book
 		std::mt19937 rand_gen(time(NULL));
 		const Key pos_key = pos.get_key();
@@ -231,10 +232,12 @@ namespace AbIterDeepEngine
 		{
 			std::uniform_int_distribution<std::size_t> rand_idx(0, book_moves.size() - 1);
 			auto idx = rand_idx(rand_gen);
-			std::cout << "Choosing random move from " << book_moves.size() << " moves\n";
+			//std::cout << "Choosing random move from " << book_moves.size() << " moves. Move Index [" << idx << "]\n";
 			auto choosen_move = book_moves[idx];
 			return move_to_string(choosen_move);
 		}
+
+		//std::cout << "Did not find book move..\n";
 
 		// Iterative Deepening searches the move tree by iteratively increasing 
 		// the depth to a max depth. This may sound counterintuitive, since
@@ -270,21 +273,21 @@ namespace AbIterDeepEngine
 				}
 			}
 
-			std::cout << "---- Search at Depth " << depth << " completed. ----\n";
-			std::cout << transposition_table.size() << " Positions evaluated\n";
-			std::cout << transpositions << " Transpositions\n";
+			//std::cout << "---- Search at Depth " << depth << " completed. ----\n";
+			//std::cout << transposition_table.size() << " Positions evaluated\n";
+			//std::cout << transpositions << " Transpositions\n";
 
 			// do not search at higher depths if more than a second has elapsed
-			if ((std::clock() - start) / (double)CLOCKS_PER_SEC > 1.0)
+			if ((std::clock() - start) / (double)CLOCKS_PER_SEC > time_to_move)
 			{
 				break;
 			}
 		}
 
-		for (const auto next_move_ptr : no_move->order_next)
+		/*for (const auto next_move_ptr : no_move->order_next)
 		{
 			std::cout << "Eval of move [" << move_to_string(next_move_ptr->move) << "] is {" << next_move_ptr->eval << "}\n";
-		}
+		}*/
 
 		if (no_move->order_next.empty())
 		{

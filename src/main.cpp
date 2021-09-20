@@ -28,13 +28,14 @@ int ucimain()
 
 	// load the book moves
 	Evaluation::Book book;
-	Evaluation::load_games(book, "./uci_games.txt");
+	Evaluation::load_games(book, "./engines/uci_games.txt");
 
 	Position pos;
 	double currentEvaluation = 0.;
 	std::string line;
 	while (getline(std::cin, line))
 	{
+		//std::cout << "Command received [" << line << "]\n";
 		std::vector<std::string> tokens;
 		tokenize(line, tokens);
 
@@ -52,6 +53,7 @@ int ucimain()
 		else if (tokens[0] == "ucinewgame")
 		{
 			// nothing to init
+			// std::cout << "echo Book is loaded with " << book.size() << " positions\n";
 		}
 		else if (tokens[0] == "isready")
 		{
@@ -93,10 +95,20 @@ int ucimain()
 		}
 		else if (tokens[0] == "go")
 		{
-			std::cout << "Position\n";
-			pos.print();
+			double time_to_move = 1.0;
+			if (tokens.size() == 9 && tokens[1] == "wtime" && tokens[3] == "btime" && tokens[5] == "winc" && tokens[7] == "binc")
+			{
+				const auto wtime = std::atoi(tokens[2].c_str());
+				const auto btime = std::atoi(tokens[4].c_str());
+				const auto winc = std::atoi(tokens[6].c_str());
+				const auto binc = std::atoi(tokens[8].c_str());
+
+				time_to_move = pos.side_to_move() == Color::WHITE ? (wtime + winc) / 60000.0 : (btime + binc) / 60000.0;
+			}
+			time_to_move = time_to_move > 5.0 ? 5.0 : time_to_move;
+			//pos.print();
 			std::cout << "info Thinking..." << std::endl;
-			std::cout << "bestmove " << AbIterDeepEngine::play_move(pos, currentEvaluation, book) << std::endl;
+			std::cout << "bestmove " << AbIterDeepEngine::play_move(pos, currentEvaluation, book, time_to_move) << std::endl;
 		}
 		else if (tokens[0] == "quit")
 		{

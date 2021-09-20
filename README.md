@@ -77,6 +77,13 @@ position fen 2kR1b1r/ppp2ppp/7n/4p3/2B1N3/4Bn2/PPP2P1P/2K3R1 b - - 0 16
 go
 ```
 
+- Tricky move from game on lichess (15...Bb7 is a blunder!)
+```
+ucinewgame
+position fen r1b2r1k/ppp3pp/3b1qn1/5p2/3N4/1Q3B2/PPP2PPP/R1BR2K1 w - - 6 15
+go
+```
+
 - Other examples
 
 ```

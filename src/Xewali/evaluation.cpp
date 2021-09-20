@@ -38,14 +38,14 @@ namespace Evaluation
 				}
 			}
 
-			std::cout << games << " Games loaded \n";
-			std::cout << book.size() << " book moves recorded\n";
+			//std::cout << games << " Games loaded \n";
+			//std::cout << book.size() << " book moves recorded\n";
 
 			file.close();
 		}
 		else
 		{
-			std::cout << "Book could not be loaded\n";
+			//std::cout << "Book could not be loaded\n";
 		}
 	}
 
@@ -150,7 +150,7 @@ namespace Evaluation
 			}
 		}
 
-		return double(material[Color::WHITE] - material[Color::BLACK]) + 10 * std::log(double(influence[Color::WHITE]) / double(influence[Color::BLACK]));
+		return double(material[Color::WHITE] - material[Color::BLACK]) + 10.0 * std::log(double(influence[Color::WHITE]) / double(influence[Color::BLACK]));
 	}
 
 	bool has_game_ended(Position& pos, int & result)

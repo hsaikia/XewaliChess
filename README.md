@@ -9,7 +9,7 @@
 
 ## Play on Lichess 
 
-[Xewali BOT] (https://lichess.org/@/xewali)
+[Xewali BOT](https://lichess.org/@/xewali)
 
 ## Evaluation
 Xewali uses a static evaluation function which consists of static material difference, piece-table weighting and mobility. Extensive approaches are always being experimented upon.

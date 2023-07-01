@@ -7,6 +7,9 @@
 - [Piece tables](https://www.chessprogramming.org/Simplified_Evaluation_Function) to amplify importance of a piece at certain squares is implemented to attract pieces to good squares.
 - [Transposition tables](https://www.chessprogramming.org/Transposition_Table) are implemented to search at much deeper levels and not to re-evaluate positions already evaluated at an equal or higher depth.
 
+## Play on Lichess 
+
+[Xewali BOT] (https://lichess.org/@/xewali)
 
 ## Evaluation
 Xewali uses a static evaluation function which consists of static material difference, piece-table weighting and mobility. Extensive approaches are always being experimented upon.

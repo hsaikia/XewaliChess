@@ -1,5 +1,7 @@
 # Xewali Chess
 
+The inner workings of XewaliChess is explained in details in [this](https://www.youtube.com/watch?v=E7FGXCbwImI) video!
+
 ## Algorithm
 - Xewali uses the [minimax](https://www.chessprogramming.org/Minimax) algorithm using [alpha-beta pruning](https://www.chessprogramming.org/Alpha-Beta). 
 - It orders moves using [internal iterative deepening](https://www.chessprogramming.org/Internal_Iterative_Deepening) so that better lines are searched early on for the pruning step to be more effective. 
